@@ -4,6 +4,7 @@ Django==5.2.10
 django-htmx==1.27.0
 gunicorn==23.0.0
 packaging==25.0
+Pillow==11.2.1
 psycopg2-binary==2.9.11
 python-dotenv==1.2.1
 requests==2.32.3
