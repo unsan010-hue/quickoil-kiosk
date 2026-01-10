@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 시작{% endblock %}
+
+{% block content %}
+<!-- 우상단 직원 메뉴 -->
+<div class="fixed top-4 right-4 z-50 flex gap-2">
+    <a href="{% url 'staff_dashboard' %}" class="px-4 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+        시공 관리
+    </a>
+    <a href="{% url 'store_settings' %}" class="px-4 py-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50">
+        설정
+    </a>
+</div>
+
+<div class="start-container">
+    <div class="logo-wrapper">
+        <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="logo">
+    </div>
+
+    <form action="{% url 'select_car' %}" method="GET" class="start-form">
+        <div class="input-wrapper">
+            <input
+                type="text"
+                name="car_number"
+                placeholder="차량번호 입력"
+                class="car-input"
+                autocomplete="off"
+            >
+        </div>
+
+        <button type="submit" class="start-button">
+            시작하기
+        </button>
+    </form>
+</div>
+{% endblock %}

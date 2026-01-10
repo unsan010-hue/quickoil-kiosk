@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 차종 선택{% endblock %}
+
+{% block content %}
+<div class="select-container">
+    <h1 class="page-title">차종 선택</h1>
+    <p class="page-subtitle">{{ brand.name }}</p>
+    
+    <div class="options-grid">
+        {% for model in models %}
+        <a href="{% url 'select_fuel' brand.id model.id %}?car_number={{ car_number }}" class="option-card">
+            <span class="option-name">{{ model.name }}</span>
+        </a>
+        {% empty %}
+        <p class="empty-message">등록된 차종이 없습니다.</p>
+        {% endfor %}
+    </div>
+    
+    <a href="{% url 'select_brand' %}?car_number={{ car_number }}" class="back-button">← 브랜드 선택</a>
+</div>
+{% endblock %}

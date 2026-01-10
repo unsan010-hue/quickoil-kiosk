@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 차종 선택{% endblock %}
+
+{% block progress %}
+{% with current_step=1 %}
+{% include 'components/progress_bar.html' %}
+{% endwith %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white py-6">
+    <div class="mx-auto max-w-7xl px-6 lg:px-8">
+
+        <!-- 브랜드 섹션 -->
+        <div id="brand-section" class="mb-4">
+            <!-- 접힌 상태 (브랜드 선택 후) -->
+            <div id="brand-collapsed" class="hidden border-b border-gray-200 py-4 mx-auto max-w-4xl">
+                <button type="button" class="flex w-full items-center justify-between text-left" onclick="expandBrands()">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500">브랜드</span>
+                        <span id="collapsed-brand-name" class="text-base font-semibold text-gray-900"></span>
+                    </div>
+                    <span class="flex h-7 items-center">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6 text-gray-500">
+                            <path d="M12 6v12m6-6H6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </button>
+            </div>
+            <!-- 펼친 상태 -->
+            <div id="brand-expanded">
+                <h2 class="text-center text-xl font-semibold text-gray-600 mb-6">브랜드 선택</h2>
+                <div id="brand-grid" class="mx-auto grid max-w-4xl grid-cols-4 items-center gap-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
+                </div>
+            </div>
+        </div>
+
+        <!-- 차종 섹션 -->
+        <div id="model-section" class="mb-4 hidden">
+            <div id="model-collapsed" class="hidden border-b border-gray-200 py-4 mx-auto max-w-4xl">
+                <button type="button" class="flex w-full items-center justify-between text-left" onclick="expandModels()">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500">차종</span>
+                        <span id="collapsed-model-name" class="text-base font-semibold text-gray-900"></span>
+                    </div>
+                    <span class="flex h-7 items-center">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6 text-gray-500">
+                            <path d="M12 6v12m6-6H6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </button>
+            </div>
+            <div id="model-expanded">
+                <h2 class="text-center text-xl font-semibold text-gray-600 mb-6">차종 선택</h2>
+                <div id="model-grid" class="mx-auto grid max-w-4xl grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                </div>
+            </div>
+        </div>
+
+        <!-- 연료 섹션 -->
+        <div id="fuel-section" class="mb-4 hidden mx-auto max-w-4xl">
+            <h2 class="text-center text-xl font-semibold text-gray-600 mb-6">연료 선택</h2>
+            <div id="fuel-grid" class="flex justify-center gap-6">
+            </div>
+        </div>
+
+        <!-- 다음 버튼 -->
+        <div id="summary-section" class="hidden mt-8">
+            <a href="#" id="next-btn" class="block w-full max-w-md mx-auto px-8 py-5 bg-orange-500 text-white text-center font-semibold text-xl rounded-xl hover:bg-orange-600 transition-all">
+                다음 단계 →
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+const brandsData = {{ brands_json|safe }};
+const fuelsData = {{ fuels_json|safe }};
+const carNumber = '{{ car_number|default:"" }}';
+
+let selectedBrand = null;
+let selectedModel = null;
+let selectedFuel = null;
+
+const brandLogos = {
+    '현대': 'https://www.carlogos.org/car-logos/hyundai-logo.png',
+    '기아': 'https://www.carlogos.org/car-logos/kia-logo.png',
+    '제네시스': 'https://www.carlogos.org/car-logos/genesis-logo.png',
+    'KG모빌리티': 'https://www.carlogos.org/car-logos/ssangyong-logo.png',
+    '르노코리아': 'https://www.carlogos.org/car-logos/renault-logo.png',
+    '벤츠': 'https://www.carlogos.org/car-logos/mercedes-benz-logo.png',
+    'BMW': 'https://www.carlogos.org/car-logos/bmw-logo.png',
+    '아우디': 'https://www.carlogos.org/car-logos/audi-logo.png',
+    '폭스바겐': 'https://www.carlogos.org/car-logos/volkswagen-logo.png',
+    '볼보': 'https://www.carlogos.org/car-logos/volvo-logo.png',
+    '토요타': 'https://www.carlogos.org/car-logos/toyota-logo.png',
+    '렉서스': 'https://www.carlogos.org/car-logos/lexus-logo.png',
+    '혼다': 'https://www.carlogos.org/car-logos/honda-logo.png',
+    '포르쉐': 'https://www.carlogos.org/car-logos/porsche-logo.png',
+    '랜드로버': 'https://www.carlogos.org/car-logos/land-rover-logo.png',
+    '지프': 'https://www.carlogos.org/car-logos/jeep-logo.png',
+    '포드': 'https://www.carlogos.org/car-logos/ford-logo.png',
+    '쉐보레': 'https://www.carlogos.org/car-logos/chevrolet-logo.png',
+    '미니': 'https://www.carlogos.org/car-logos/mini-logo.png',
+    '푸조': 'https://www.carlogos.org/car-logos/peugeot-logo.png',
+};
+
+document.addEventListener('DOMContentLoaded', renderBrands);
+
+function renderBrands() {
+    const grid = document.getElementById('brand-grid');
+    grid.innerHTML = brandsData.map(brand => {
+        const logoUrl = brandLogos[brand.name];
+        const logoHtml = logoUrl
+            ? `<img src="${logoUrl}" alt="${brand.name}" class="h-12 w-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+               <span class="text-xl font-bold text-gray-700 hidden">${brand.name.slice(0, 2)}</span>`
+            : `<span class="text-xl font-bold text-gray-700">${brand.name.slice(0, 2)}</span>`;
+        return `
+        <button type="button"
+            class="brand-logo-btn flex flex-col items-center justify-center p-4 rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer min-h-[80px]"
+            data-brand-id="${brand.id}"
+            onclick="selectBrand(${brand.id}, '${brand.name}')">
+            <div class="h-12 flex items-center justify-center mb-2">${logoHtml}</div>
+            <span class="text-sm font-medium text-gray-600">${brand.name}</span>
+        </button>`;
+    }).join('');
+}
+
+function selectBrand(brandId, brandName) {
+    selectedBrand = { id: brandId, name: brandName };
+    selectedModel = null;
+    selectedFuel = null;
+
+    // 브랜드 섹션 접기
+    document.getElementById('brand-expanded').classList.add('hidden');
+    document.getElementById('brand-collapsed').classList.remove('hidden');
+    document.getElementById('collapsed-brand-name').textContent = brandName;
+
+    // 차종 렌더링
+    const brand = brandsData.find(b => b.id === brandId);
+    renderModels(brand.models);
+
+    // 차종 섹션 보이기, 연료/요약 숨기기
+    document.getElementById('model-section').classList.remove('hidden');
+    document.getElementById('model-expanded').classList.remove('hidden');
+    document.getElementById('model-collapsed').classList.add('hidden');
+    document.getElementById('fuel-section').classList.add('hidden');
+    document.getElementById('summary-section').classList.add('hidden');
+}
+
+function expandBrands() {
+    document.getElementById('brand-expanded').classList.remove('hidden');
+    document.getElementById('brand-collapsed').classList.add('hidden');
+}
+
+function renderModels(models) {
+    const grid = document.getElementById('model-grid');
+    if (models.length === 0) {
+        grid.innerHTML = '<p class="col-span-full text-center text-gray-400 text-base py-4">등록된 차종이 없습니다</p>';
+        return;
+    }
+    grid.innerHTML = models.map(model => `
+        <button type="button"
+            class="model-btn py-4 px-4 text-center rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer min-h-[56px]"
+            data-model-id="${model.id}"
+            onclick="selectModel(${model.id}, '${model.name}')">
+            <span class="text-base font-medium text-gray-700">${model.name}</span>
+        </button>
+    `).join('');
+}
+
+function selectModel(modelId, modelName) {
+    selectedModel = { id: modelId, name: modelName };
+    selectedFuel = null;
+
+    // 차종 섹션 접기
+    document.getElementById('model-expanded').classList.add('hidden');
+    document.getElementById('model-collapsed').classList.remove('hidden');
+    document.getElementById('collapsed-model-name').textContent = modelName;
+
+    // 연료 렌더링 및 보이기
+    renderFuels();
+    document.getElementById('fuel-section').classList.remove('hidden');
+    document.getElementById('summary-section').classList.add('hidden');
+}
+
+function expandModels() {
+    document.getElementById('model-expanded').classList.remove('hidden');
+    document.getElementById('model-collapsed').classList.add('hidden');
+}
+
+function renderFuels() {
+    const grid = document.getElementById('fuel-grid');
+    grid.innerHTML = fuelsData.map(fuel => `
+        <button type="button"
+            class="fuel-btn flex-1 py-4 px-6 text-center rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer"
+            data-fuel-id="${fuel.id}"
+            onclick="selectFuel(${fuel.id}, '${fuel.name}')">
+            <span class="text-base font-semibold text-gray-700">${fuel.name}</span>
+        </button>
+    `).join('');
+}
+
+function selectFuel(fuelId, fuelName) {
+    document.querySelectorAll('.fuel-btn').forEach(btn => {
+        btn.classList.remove('border-orange-500', 'bg-orange-50');
+        btn.classList.add('border-gray-200');
+    });
+    document.querySelector(`[data-fuel-id="${fuelId}"]`).classList.remove('border-gray-200');
+    document.querySelector(`[data-fuel-id="${fuelId}"]`).classList.add('border-orange-500', 'bg-orange-50');
+
+    selectedFuel = { id: fuelId, name: fuelName };
+
+    let url = '/oil/?brand=' + selectedBrand.id + '&model=' + selectedModel.id + '&fuel=' + selectedFuel.id;
+    if (carNumber) url += '&car_number=' + encodeURIComponent(carNumber);
+    document.getElementById('next-btn').href = url;
+    document.getElementById('summary-section').classList.remove('hidden');
+}
+</script>
+{% endblock %}

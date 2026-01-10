@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static humanize %}
+
+{% block title %}QuickOil - 견적서{% endblock %}
+
+{% block progress %}
+{% with current_step=4 %}
+{% include 'components/progress_bar.html' %}
+{% endwith %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-gray-100 py-8 min-h-screen">
+    <div class="mx-auto max-w-2xl px-6">
+
+        <!-- 견적서 카드 -->
+        <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <!-- 헤더 -->
+            <div class="bg-orange-500 px-6 py-6 text-center">
+                <h1 class="text-2xl font-bold text-white">견적서</h1>
+                <p class="text-orange-100 mt-1">QuickOil</p>
+            </div>
+
+            <!-- 차량 정보 -->
+            <div class="px-6 py-5 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">차량</span>
+                    <span class="font-semibold text-gray-900">{{ brand.name }} {{ car_model.name }}</span>
+                </div>
+                {% if car_number %}
+                <div class="flex justify-between items-center mt-2">
+                    <span class="text-gray-500">차량번호</span>
+                    <span class="font-semibold text-gray-900">{{ car_number }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between items-center mt-2">
+                    <span class="text-gray-500">연료</span>
+                    <span class="font-semibold text-gray-900">{{ fuel_type.name }}</span>
+                </div>
+            </div>
+
+            <!-- 서비스 내역 -->
+            <div class="px-6 py-5">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">서비스 내역</h3>
+
+                <!-- 엔진오일 -->
+                <div class="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div>
+                        <span class="font-semibold text-gray-900">엔진오일 - {{ oil.name }}</span>
+                        {% if oil.product_name %}
+                        <p class="text-sm text-gray-500">{{ oil.product_name }}</p>
+                        {% endif %}
+                    </div>
+                    <span class="font-bold text-gray-900">{{ oil.price|intcomma }}원</span>
+                </div>
+
+                <!-- 추가 서비스 -->
+                {% for service in services %}
+                <div class="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div>
+                        <span class="font-semibold text-gray-900">{{ service.name }}</span>
+                        {% if service.description %}
+                        <p class="text-sm text-gray-500">{{ service.description }}</p>
+                        {% endif %}
+                    </div>
+                    {% if service.price > 0 %}
+                    <span class="font-bold text-gray-900">{{ service.price|intcomma }}원</span>
+                    {% else %}
+                    <span class="font-bold text-green-600">무료</span>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <!-- 추가 서비스 없음 -->
+                {% endfor %}
+            </div>
+
+            <!-- 합계 -->
+            <div class="px-6 py-6 bg-gray-50">
+                {% if services %}
+                <div class="flex justify-between items-center text-gray-600 mb-2">
+                    <span>엔진오일</span>
+                    <span>{{ oil.price|intcomma }}원</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-600 mb-4">
+                    <span>추가 서비스</span>
+                    <span>{{ services_total|intcomma }}원</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between items-center pt-4 border-t-2 border-gray-300">
+                    <span class="text-xl font-bold text-gray-900">총 결제 금액</span>
+                    <span class="text-2xl font-bold text-orange-500">{{ total_price|intcomma }}원</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 전화번호 입력 -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 mt-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                연락처 (알림톡 발송용)
+            </label>
+            <input type="tel" id="customer-phone" name="customer_phone"
+                placeholder="010-0000-0000"
+                class="w-full px-4 py-4 text-lg border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                autocomplete="tel">
+            <p class="mt-2 text-sm text-gray-500">시공 완료 후 정비 명세서를 카카오톡으로 보내드립니다</p>
+        </div>
+
+        <!-- 버튼들 -->
+        <div class="mt-8 space-y-4">
+            <!-- 시공 진행 버튼 -->
+            <button type="button" id="start-service-btn"
+                class="w-full flex items-center justify-center gap-3 px-8 py-5 bg-orange-500 text-white font-semibold text-xl rounded-xl hover:bg-orange-600 transition-all">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                시공 진행
+            </button>
+
+            <!-- 처음으로 -->
+            <a href="/" class="block w-full px-8 py-5 bg-gray-200 text-gray-700 text-center font-semibold text-xl rounded-xl hover:bg-gray-300 transition-all">
+                처음으로 돌아가기
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// 시공 진행 버튼 클릭
+document.getElementById('start-service-btn').addEventListener('click', function() {
+    if (!confirm('시공을 진행하시겠습니까?')) return;
+
+    const orderData = {
+        car_number: '{{ car_number|default:"" }}',
+        customer_phone: document.getElementById('customer-phone').value.trim(),
+        brand_id: '{{ brand_id }}',
+        model_id: '{{ model_id }}',
+        fuel_id: '{{ fuel_id }}',
+        oil_id: '{{ oil_id }}',
+        service_ids: '{{ service_ids }}',
+    };
+
+    fetch('/api/order/create/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify(orderData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '/complete/';
+        } else {
+            alert('오류가 발생했습니다. 다시 시도해주세요.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('오류가 발생했습니다. 다시 시도해주세요.');
+    });
+});
+</script>
+{% endblock %}

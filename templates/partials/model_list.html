@@ -1,0 +1,16 @@
+<div class="border-t border-gray-200 pt-6">
+    <h2 class="text-center text-lg font-semibold text-gray-600 mb-6">차종 선택</h2>
+    <div class="mx-auto grid max-w-4xl grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {% for model in models %}
+        <button
+            type="button"
+            class="model-btn py-3 px-4 text-center rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer"
+            onclick="selectModel(this, '{{ model.name }}', '{{ model.id }}')"
+        >
+            <span class="text-sm font-medium text-gray-700">{{ model.name }}</span>
+        </button>
+        {% empty %}
+        <p class="col-span-full text-center text-gray-400 text-sm py-4">등록된 차종이 없습니다</p>
+        {% endfor %}
+    </div>
+</div>
