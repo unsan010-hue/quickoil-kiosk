@@ -17,12 +17,12 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.railway.app').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.railway.app,.onrender.com').split(',')
 
-# CSRF 설정 (Railway 등 외부 호스팅용)
+# CSRF 설정 (외부 호스팅용)
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in
-    os.getenv('CSRF_TRUSTED_ORIGINS', 'https://*.railway.app').split(',')
+    os.getenv('CSRF_TRUSTED_ORIGINS', 'https://*.railway.app,https://*.onrender.com').split(',')
 ]
 
 
