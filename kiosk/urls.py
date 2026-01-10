@@ -19,4 +19,10 @@ urlpatterns = [
     path('staff/order/<int:order_id>/', views.order_detail, name='order_detail'),
     path('staff/search/', views.order_search, name='order_search'),
     path('staff/settings/', views.store_settings, name='store_settings'),
+
+    # 예약 관리
+    path('staff/reservations/', views.reservation_list, name='reservation_list'),
+    path('staff/reservations/add/', views.reservation_add, name='reservation_add'),
+    path('staff/reservations/<int:reservation_id>/', views.reservation_edit, name='reservation_edit'),
+    path('api/check-reservation/', views.check_reservation, name='check_reservation'),
 ]

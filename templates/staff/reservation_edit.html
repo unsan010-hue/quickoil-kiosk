@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 예약 수정{% endblock %}
+
+{% block content %}
+<div class="bg-gray-100 min-h-screen py-6">
+    <div class="mx-auto max-w-6xl px-6">
+        <!-- 헤더 -->
+        <div class="flex items-center gap-4 mb-6">
+            <a href="{% url 'reservation_list' %}" class="p-2 bg-white rounded-lg hover:bg-gray-50">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">예약 수정</h1>
+            <span class="ml-auto px-3 py-1 text-sm rounded-full
+                {% if reservation.status == 'reserved' %}bg-blue-100 text-blue-700
+                {% elif reservation.status == 'arrived' %}bg-orange-100 text-orange-700
+                {% elif reservation.status == 'completed' %}bg-green-100 text-green-700
+                {% elif reservation.status == 'cancelled' %}bg-gray-200 text-gray-500
+                {% endif %}">
+                {{ reservation.get_status_display }}
+            </span>
+        </div>
+
+        <form method="post" class="space-y-6 max-w-2xl">
+            {% csrf_token %}
+
+            <!-- 날짜/시간 -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">예약 일시</h3>
+                </div>
+                <div class="px-6 py-5 grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">날짜</label>
+                        <input type="date" name="date" value="{{ reservation.date|date:'Y-m-d' }}" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">시간</label>
+                        <input type="time" name="time" value="{{ reservation.time|time:'H:i' }}" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 고객 정보 -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">고객 정보</h3>
+                </div>
+                <div class="px-6 py-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">고객명</label>
+                            <input type="text" name="customer_name" value="{{ reservation.customer_name }}"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">전화번호 *</label>
+                            <input type="tel" name="customer_phone" value="{{ reservation.customer_phone }}" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">차량번호</label>
+                        <input type="text" name="car_number" value="{{ reservation.car_number }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 차량 정보 -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">차량 정보</h3>
+                </div>
+                <div class="px-6 py-5 grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">브랜드</label>
+                        <select name="brand" id="brand-select"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                            <option value="">선택 안함</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand.id }}" {% if reservation.brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">차종</label>
+                        <select name="model" id="model-select"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                            <option value="">선택 안함</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 예약 정보 -->
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">예약 정보</h3>
+                </div>
+                <div class="px-6 py-5 space-y-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">예상 오일</label>
+                            <select name="expected_oil"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                <option value="">미정</option>
+                                {% for oil in oil_choices %}
+                                <option value="{{ oil }}" {% if reservation.expected_oil == oil %}selected{% endif %}>{{ oil }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">예약 경로</label>
+                            <select name="source"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                {% for value, label in source_choices %}
+                                <option value="{{ value }}" {% if reservation.source == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                            <select name="status"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if reservation.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">메모</label>
+                        <textarea name="memo" rows="2"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">{{ reservation.memo }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 버튼 -->
+            <div class="flex gap-4">
+                <button type="submit" name="action" value="cancel" onclick="return confirm('예약을 취소하시겠습니까?')"
+                    class="px-6 py-4 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300">
+                    예약 취소
+                </button>
+                <div class="flex-1"></div>
+                <a href="{% url 'reservation_list' %}" class="px-6 py-4 bg-gray-200 text-gray-700 font-semibold rounded-xl text-center hover:bg-gray-300">
+                    돌아가기
+                </a>
+                <button type="submit" class="px-8 py-4 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600">
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const brandsData = {{ brands_json|safe }};
+const currentModelId = {{ reservation.car_model_id|default:"null" }};
+
+function updateModels(brandId, selectedModelId) {
+    const modelSelect = document.getElementById('model-select');
+    modelSelect.innerHTML = '<option value="">선택 안함</option>';
+
+    if (brandId) {
+        const brand = brandsData.find(b => b.id == brandId);
+        if (brand) {
+            brand.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                if (model.id == selectedModelId) option.selected = true;
+                modelSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+document.getElementById('brand-select').addEventListener('change', function() {
+    updateModels(this.value, null);
+});
+
+// 초기 로드
+{% if reservation.brand_id %}
+updateModels({{ reservation.brand_id }}, currentModelId);
+{% endif %}
+</script>
+{% endblock %}

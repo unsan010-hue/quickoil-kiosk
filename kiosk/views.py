@@ -3,7 +3,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from .models import CarBrand, CarModel, FuelType, EngineOil, AdditionalService, ServiceOrder, ServiceOrderItem, StoreSettings
+from datetime import date, datetime, timedelta
+from .models import CarBrand, CarModel, FuelType, EngineOil, AdditionalService, ServiceOrder, ServiceOrderItem, StoreSettings, Customer, Reservation
 from .services import send_service_complete_message
 
 
@@ -421,3 +422,231 @@ def send_alimtalk(request, order_id):
     result = send_service_complete_message(order)
 
     return JsonResponse(result)
+
+
+# ============================================
+# 예약 관리
+# ============================================
+
+def reservation_list(request):
+    """오늘 예약 목록"""
+    target_date = request.GET.get('date')
+    if target_date:
+        try:
+            target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+        except:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    reservations = Reservation.objects.filter(date=target_date).order_by('time')
+
+    # 시간대별 그룹핑 (9시~19시)
+    time_slots = []
+    for hour in range(9, 20):
+        slot_reservations = [r for r in reservations if r.time.hour == hour]
+        time_slots.append({
+            'hour': hour,
+            'display': f"{hour:02d}:00",
+            'reservations': slot_reservations,
+        })
+
+    context = {
+        'target_date': target_date,
+        'prev_date': target_date - timedelta(days=1),
+        'next_date': target_date + timedelta(days=1),
+        'reservations': reservations,
+        'time_slots': time_slots,
+        'stats': {
+            'total': reservations.count(),
+            'reserved': reservations.filter(status='reserved').count(),
+            'arrived': reservations.filter(status='arrived').count(),
+            'completed': reservations.filter(status='completed').count(),
+        }
+    }
+    return render(request, 'staff/reservation_list.html', context)
+
+
+def reservation_add(request):
+    """예약 추가"""
+    if request.method == 'POST':
+        # 날짜/시간
+        res_date = request.POST.get('date')
+        res_time = request.POST.get('time')
+
+        # 고객 정보
+        customer_name = request.POST.get('customer_name', '')
+        customer_phone = request.POST.get('customer_phone', '')
+        car_number = request.POST.get('car_number', '')
+
+        # 차량 정보
+        brand_id = request.POST.get('brand')
+        model_id = request.POST.get('model')
+
+        # 예약 정보
+        expected_oil = request.POST.get('expected_oil', '')
+        source = request.POST.get('source', 'phone')
+        memo = request.POST.get('memo', '')
+
+        brand = CarBrand.objects.filter(id=brand_id).first() if brand_id else None
+        car_model = CarModel.objects.filter(id=model_id).first() if model_id else None
+
+        # 고객 조회/생성
+        customer = None
+        if customer_phone:
+            customer, _ = Customer.objects.get_or_create(
+                phone=customer_phone,
+                defaults={
+                    'name': customer_name,
+                    'car_number': car_number,
+                    'brand': brand,
+                    'car_model': car_model,
+                }
+            )
+            # 기존 고객이면 정보 업데이트
+            if customer_name and not customer.name:
+                customer.name = customer_name
+            if car_number and not customer.car_number:
+                customer.car_number = car_number
+            if brand and not customer.brand:
+                customer.brand = brand
+            if car_model and not customer.car_model:
+                customer.car_model = car_model
+            customer.save()
+
+        # 예약 생성
+        Reservation.objects.create(
+            date=res_date,
+            time=res_time,
+            customer=customer,
+            customer_name=customer_name,
+            customer_phone=customer_phone,
+            car_number=car_number,
+            brand=brand,
+            car_model=car_model,
+            expected_oil=expected_oil,
+            source=source,
+            memo=memo,
+        )
+
+        return redirect('reservation_list')
+
+    # GET: 폼 표시
+    brands = CarBrand.objects.prefetch_related('models').all()
+    brands_data = []
+    for brand in brands:
+        brands_data.append({
+            'id': brand.id,
+            'name': brand.name,
+            'models': [{'id': m.id, 'name': m.name} for m in brand.models.all()]
+        })
+
+    context = {
+        'brands': brands,
+        'brands_json': json.dumps(brands_data, ensure_ascii=False),
+        'today': date.today(),
+        'oil_choices': ['이코노미', '스탠다드', '프리미엄', '하이퍼포먼스', '레이싱'],
+        'source_choices': Reservation.SOURCE_CHOICES,
+    }
+    return render(request, 'staff/reservation_add.html', context)
+
+
+def reservation_edit(request, reservation_id):
+    """예약 수정"""
+    reservation = get_object_or_404(Reservation, id=reservation_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'delete':
+            reservation.delete()
+            return redirect('reservation_list')
+
+        if action == 'cancel':
+            reservation.status = 'cancelled'
+            reservation.save()
+            return redirect('reservation_list')
+
+        # 수정
+        reservation.date = request.POST.get('date')
+        reservation.time = request.POST.get('time')
+        reservation.customer_name = request.POST.get('customer_name', '')
+        reservation.customer_phone = request.POST.get('customer_phone', '')
+        reservation.car_number = request.POST.get('car_number', '')
+        reservation.expected_oil = request.POST.get('expected_oil', '')
+        reservation.source = request.POST.get('source', 'phone')
+        reservation.memo = request.POST.get('memo', '')
+        reservation.status = request.POST.get('status', reservation.status)
+
+        brand_id = request.POST.get('brand')
+        model_id = request.POST.get('model')
+        reservation.brand = CarBrand.objects.filter(id=brand_id).first() if brand_id else None
+        reservation.car_model = CarModel.objects.filter(id=model_id).first() if model_id else None
+
+        reservation.save()
+        return redirect('reservation_list')
+
+    # GET
+    brands = CarBrand.objects.prefetch_related('models').all()
+    brands_data = []
+    for brand in brands:
+        brands_data.append({
+            'id': brand.id,
+            'name': brand.name,
+            'models': [{'id': m.id, 'name': m.name} for m in brand.models.all()]
+        })
+
+    context = {
+        'reservation': reservation,
+        'brands': brands,
+        'brands_json': json.dumps(brands_data, ensure_ascii=False),
+        'oil_choices': ['이코노미', '스탠다드', '프리미엄', '하이퍼포먼스', '레이싱'],
+        'source_choices': Reservation.SOURCE_CHOICES,
+        'status_choices': Reservation.STATUS_CHOICES,
+    }
+    return render(request, 'staff/reservation_edit.html', context)
+
+
+def check_reservation(request):
+    """전화번호로 예약 조회 (API)"""
+    phone = request.GET.get('phone', '').replace('-', '').replace(' ', '')
+
+    if not phone:
+        return JsonResponse({'found': False})
+
+    # 오늘 예약 중 매칭
+    today = date.today()
+    reservation = Reservation.objects.filter(
+        customer_phone__endswith=phone[-8:],  # 뒤 8자리 매칭
+        date=today,
+        status='reserved'
+    ).first()
+
+    if reservation:
+        return JsonResponse({
+            'found': True,
+            'reservation': {
+                'id': reservation.id,
+                'time': reservation.time.strftime('%H:%M'),
+                'customer_name': reservation.customer_name,
+                'car_number': reservation.car_number,
+                'brand_id': reservation.brand_id,
+                'model_id': reservation.car_model_id,
+                'expected_oil': reservation.expected_oil,
+            }
+        })
+
+    # 고객 정보만이라도 찾기
+    customer = Customer.objects.filter(phone__endswith=phone[-8:]).first()
+    if customer:
+        return JsonResponse({
+            'found': False,
+            'customer': {
+                'name': customer.name,
+                'car_number': customer.car_number,
+                'brand_id': customer.brand_id,
+                'model_id': customer.car_model_id,
+            }
+        })
+
+    return JsonResponse({'found': False})
