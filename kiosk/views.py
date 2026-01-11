@@ -545,7 +545,13 @@ def reservation_add(request):
         'brands': brands,
         'brands_json': json.dumps(brands_data, ensure_ascii=False),
         'today': date.today(),
-        'oil_choices': ['이코노미', '스탠다드', '프리미엄', '하이퍼포먼스', '레이싱'],
+        'oil_choices': [
+            '이코노미 (DX5, GX5)',
+            '스탠다드 (DX7)',
+            '프리미엄 (KIXX PAO, 토탈쿼츠 9000)',
+            '하이퍼포먼스 (리스타 슈퍼노멀)',
+            '레이싱 (리스타 메탈로센)',
+        ],
         'source_choices': Reservation.SOURCE_CHOICES,
     }
     return render(request, 'staff/reservation_add.html', context)
@@ -600,7 +606,13 @@ def reservation_edit(request, reservation_id):
         'reservation': reservation,
         'brands': brands,
         'brands_json': json.dumps(brands_data, ensure_ascii=False),
-        'oil_choices': ['이코노미', '스탠다드', '프리미엄', '하이퍼포먼스', '레이싱'],
+        'oil_choices': [
+            '이코노미 (DX5, GX5)',
+            '스탠다드 (DX7)',
+            '프리미엄 (KIXX PAO, 토탈쿼츠 9000)',
+            '하이퍼포먼스 (리스타 슈퍼노멀)',
+            '레이싱 (리스타 메탈로센)',
+        ],
         'source_choices': Reservation.SOURCE_CHOICES,
         'status_choices': Reservation.STATUS_CHOICES,
     }
