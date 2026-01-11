@@ -439,27 +439,43 @@ def reservation_list(request):
     else:
         target_date = date.today()
 
-    reservations = Reservation.objects.filter(date=target_date).order_by('time')
+    # 쿼리 최적화: select_related로 JOIN
+    reservations = list(Reservation.objects.filter(date=target_date)
+        .select_related('brand', 'car_model')
+        .order_by('time'))
 
     # 시간대를 고려해서 해당 날짜의 주문 조회
     start_of_day = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
     end_of_day = start_of_day + timedelta(days=1)
-    orders = ServiceOrder.objects.filter(
+    orders = list(ServiceOrder.objects.filter(
         created_at__gte=start_of_day,
         created_at__lt=end_of_day
-    ).order_by('created_at')
+    ).select_related('brand', 'car_model').order_by('created_at'))
+
+    # 주문별 로컬 시간 미리 계산
+    for order in orders:
+        order.local_hour = timezone.localtime(order.created_at).hour
 
     # 시간대별 그룹핑 (9시~19시)
     time_slots = []
     for hour in range(9, 20):
         slot_reservations = [r for r in reservations if r.time.hour == hour]
-        slot_orders = [o for o in orders if timezone.localtime(o.created_at).hour == hour]
+        slot_orders = [o for o in orders if o.local_hour == hour]
         time_slots.append({
             'hour': hour,
             'display': f"{hour:02d}:00",
             'reservations': slot_reservations,
             'orders': slot_orders,
         })
+
+    # 통계 계산 (리스트에서 직접 계산)
+    stats = {
+        'total': len(reservations) + len(orders),
+        'reserved': sum(1 for r in reservations if r.status == 'reserved'),
+        'arrived': sum(1 for r in reservations if r.status == 'arrived'),
+        'completed': sum(1 for r in reservations if r.status == 'completed') + sum(1 for o in orders if o.status == 'completed'),
+        'orders_pending': sum(1 for o in orders if o.status != 'completed'),
+    }
 
     context = {
         'target_date': target_date,
@@ -468,13 +484,7 @@ def reservation_list(request):
         'reservations': reservations,
         'orders': orders,
         'time_slots': time_slots,
-        'stats': {
-            'total': reservations.count() + orders.count(),
-            'reserved': reservations.filter(status='reserved').count(),
-            'arrived': reservations.filter(status='arrived').count(),
-            'completed': reservations.filter(status='completed').count() + orders.filter(status='completed').count(),
-            'orders_pending': orders.exclude(status='completed').count(),
-        }
+        'stats': stats,
     }
     return render(request, 'staff/reservation_list.html', context)
 
