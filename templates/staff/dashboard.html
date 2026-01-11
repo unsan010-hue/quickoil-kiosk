@@ -81,7 +81,7 @@
                         </td>
                         <td class="px-4 py-4 text-gray-700">{{ order.oil_name }}</td>
                         <td class="px-4 py-4 font-semibold text-orange-500">{{ order.total_price|intcomma }}원</td>
-                        <td class="px-4 py-4 text-sm text-gray-500">{{ order.created_at|date:"H:i" }}</td>
+                        <td class="px-4 py-4 text-sm text-gray-500">{{ order.created_at|date:"m/d H:i" }}</td>
                         <td class="px-4 py-4">
                             <a href="{% url 'order_detail' order.id %}" class="px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600">
                                 {% if order.status == 'completed' %}보기{% else %}완료처리{% endif %}
