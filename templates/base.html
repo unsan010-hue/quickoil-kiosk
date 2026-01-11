@@ -7,13 +7,12 @@
     <title>{% block title %}QuickOil{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
 <body>
     {% block progress %}{% endblock %}
 
     {% if car_number %}
-    <div class="fixed top-0 right-6 z-50 h-[57px] flex items-center">
+    <div class="fixed top-0 right-6 z-50 h-14 flex items-center">
         <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-200">
             <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path>
