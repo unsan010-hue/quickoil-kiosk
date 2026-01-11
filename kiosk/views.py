@@ -429,7 +429,7 @@ def send_alimtalk(request, order_id):
 # ============================================
 
 def reservation_list(request):
-    """오늘 예약 목록"""
+    """오늘 예약 + 시공 목록"""
     target_date = request.GET.get('date')
     if target_date:
         try:
@@ -440,15 +440,18 @@ def reservation_list(request):
         target_date = date.today()
 
     reservations = Reservation.objects.filter(date=target_date).order_by('time')
+    orders = ServiceOrder.objects.filter(created_at__date=target_date).order_by('created_at')
 
     # 시간대별 그룹핑 (9시~19시)
     time_slots = []
     for hour in range(9, 20):
         slot_reservations = [r for r in reservations if r.time.hour == hour]
+        slot_orders = [o for o in orders if o.created_at.hour == hour]
         time_slots.append({
             'hour': hour,
             'display': f"{hour:02d}:00",
             'reservations': slot_reservations,
+            'orders': slot_orders,
         })
 
     context = {
@@ -456,12 +459,14 @@ def reservation_list(request):
         'prev_date': target_date - timedelta(days=1),
         'next_date': target_date + timedelta(days=1),
         'reservations': reservations,
+        'orders': orders,
         'time_slots': time_slots,
         'stats': {
-            'total': reservations.count(),
+            'total': reservations.count() + orders.count(),
             'reserved': reservations.filter(status='reserved').count(),
             'arrived': reservations.filter(status='arrived').count(),
-            'completed': reservations.filter(status='completed').count(),
+            'completed': reservations.filter(status='completed').count() + orders.filter(status='completed').count(),
+            'orders_pending': orders.exclude(status='completed').count(),
         }
     }
     return render(request, 'staff/reservation_list.html', context)

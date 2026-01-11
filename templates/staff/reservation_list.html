@@ -43,7 +43,7 @@
         </div>
 
         <!-- 통계 -->
-        <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-5 gap-4 mb-6">
             <div class="bg-white rounded-xl p-4 text-center">
                 <p class="text-sm text-gray-500">전체</p>
                 <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
@@ -51,6 +51,10 @@
             <div class="bg-white rounded-xl p-4 text-center">
                 <p class="text-sm text-gray-500">예약</p>
                 <p class="text-2xl font-bold text-blue-500">{{ stats.reserved }}</p>
+            </div>
+            <div class="bg-white rounded-xl p-4 text-center">
+                <p class="text-sm text-gray-500">시공중</p>
+                <p class="text-2xl font-bold text-purple-500">{{ stats.orders_pending }}</p>
             </div>
             <div class="bg-white rounded-xl p-4 text-center">
                 <p class="text-sm text-gray-500">도착</p>
@@ -65,15 +69,16 @@
         <!-- 타임라인 -->
         <div class="bg-white rounded-xl overflow-hidden">
             {% for slot in time_slots %}
-            <div class="flex border-b border-gray-100 {% if slot.reservations %}bg-white{% else %}bg-gray-50{% endif %}">
+            <div class="flex border-b border-gray-100 {% if slot.reservations or slot.orders %}bg-white{% else %}bg-gray-50{% endif %}">
                 <!-- 시간 -->
                 <div class="w-20 py-4 px-4 text-center border-r border-gray-100">
                     <span class="text-lg font-bold text-gray-700">{{ slot.display }}</span>
                 </div>
-                <!-- 예약들 -->
+                <!-- 예약 + 시공 -->
                 <div class="flex-1 py-3 px-4">
-                    {% if slot.reservations %}
+                    {% if slot.reservations or slot.orders %}
                     <div class="space-y-2">
+                        <!-- 예약 -->
                         {% for res in slot.reservations %}
                         <a href="{% url 'reservation_edit' res.id %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-200
                             {% if res.status == 'reserved' %}border-l-4 border-l-blue-500
@@ -106,6 +111,37 @@
                                 {{ res.car_number }}
                                 {% if res.brand %} · {{ res.brand.name }}{% endif %}
                                 {% if res.car_model %} {{ res.car_model.name }}{% endif %}
+                            </div>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                        <!-- 시공 주문 -->
+                        {% for order in slot.orders %}
+                        <a href="{% url 'order_detail' order.id %}" class="block p-3 rounded-lg hover:bg-gray-50 border border-gray-200
+                            {% if order.status == 'completed' %}border-l-4 border-l-green-500 bg-gray-50
+                            {% else %}border-l-4 border-l-purple-500
+                            {% endif %}">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <span class="font-bold text-gray-900">{{ order.created_at|time:"H:i" }}</span>
+                                    <span class="ml-2 font-semibold text-gray-800">{{ order.car_number|default:"미입력" }}</span>
+                                    <span class="ml-2 text-gray-500">{{ order.customer_phone|default:"" }}</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded">{{ order.oil_name }}</span>
+                                    <span class="px-2 py-1 text-xs rounded
+                                        {% if order.status == 'completed' %}bg-green-100 text-green-700
+                                        {% else %}bg-purple-100 text-purple-700
+                                        {% endif %}">
+                                        {% if order.status == 'completed' %}완료{% else %}시공{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% if order.brand or order.car_model %}
+                            <div class="mt-1 text-sm text-gray-500">
+                                {% if order.brand %}{{ order.brand.name }}{% endif %}
+                                {% if order.car_model %} {{ order.car_model.name }}{% endif %}
+                                · {{ order.total_price|intcomma }}원
                             </div>
                             {% endif %}
                         </a>
