@@ -440,13 +440,20 @@ def reservation_list(request):
         target_date = date.today()
 
     reservations = Reservation.objects.filter(date=target_date).order_by('time')
-    orders = ServiceOrder.objects.filter(created_at__date=target_date).order_by('created_at')
+
+    # 시간대를 고려해서 해당 날짜의 주문 조회
+    start_of_day = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+    end_of_day = start_of_day + timedelta(days=1)
+    orders = ServiceOrder.objects.filter(
+        created_at__gte=start_of_day,
+        created_at__lt=end_of_day
+    ).order_by('created_at')
 
     # 시간대별 그룹핑 (9시~19시)
     time_slots = []
     for hour in range(9, 20):
         slot_reservations = [r for r in reservations if r.time.hour == hour]
-        slot_orders = [o for o in orders if o.created_at.hour == hour]
+        slot_orders = [o for o in orders if timezone.localtime(o.created_at).hour == hour]
         time_slots.append({
             'hour': hour,
             'display': f"{hour:02d}:00",
