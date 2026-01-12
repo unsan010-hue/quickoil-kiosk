@@ -1,21 +1,14 @@
-{% extends 'base.html' %}
+{% extends 'staff/staff_base.html' %}
 {% load static humanize %}
 
 {% block title %}QuickOil - 예약 관리{% endblock %}
 
-{% block content %}
+{% block staff_content %}
 <div class="bg-gray-100 min-h-screen py-6">
     <div class="mx-auto max-w-6xl px-6">
-        <!-- 헤더 -->
+        <!-- 페이지 타이틀 -->
         <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center gap-4">
-                <button onclick="history.back()" class="p-2 bg-white rounded-lg hover:bg-gray-50">
-                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                    </svg>
-                </button>
-                <h1 class="text-2xl font-bold text-gray-900">예약 관리</h1>
-            </div>
+            <h1 class="text-2xl font-bold text-gray-900">예약 관리</h1>
             <a href="{% url 'reservation_add' %}" class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -26,27 +19,34 @@
 
         <!-- 날짜 네비게이션 -->
         <div class="flex items-center justify-center gap-4 mb-6">
-            <a href="?date={{ prev_date|date:'Y-m-d' }}" class="p-2 bg-white rounded-lg hover:bg-gray-50">
+            <button onclick="goToDate('{{ prev_date|date:'Y-m-d' }}')" class="p-2 bg-white rounded-lg hover:bg-gray-50">
                 <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
-            </a>
+            </button>
             <div class="text-center relative">
                 <input type="date" id="date-picker" value="{{ target_date|date:'Y-m-d' }}"
                     class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    onchange="location.href='?date=' + this.value">
+                    onchange="goToDate(this.value)">
                 <p class="text-2xl font-bold text-gray-900 cursor-pointer">{{ target_date|date:"m월 d일" }}</p>
                 <p class="text-sm text-gray-500">{{ target_date|date:"l" }}</p>
             </div>
-            <a href="?date={{ next_date|date:'Y-m-d' }}" class="p-2 bg-white rounded-lg hover:bg-gray-50">
+            <button onclick="goToDate('{{ next_date|date:'Y-m-d' }}')" class="p-2 bg-white rounded-lg hover:bg-gray-50">
                 <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
-            </a>
-            <a href="?date={% now 'Y-m-d' %}" class="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
+            </button>
+            <button onclick="goToDate('{% now 'Y-m-d' %}')" class="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200">
                 오늘
-            </a>
+            </button>
         </div>
+        <script>
+        function goToDate(date) {
+            const url = '?date=' + date;
+            history.replaceState(null, '', url);
+            location.replace(location.pathname + url);
+        }
+        </script>
 
         <!-- 통계 -->
         <div class="grid grid-cols-5 gap-4 mb-6">

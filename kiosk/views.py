@@ -298,24 +298,31 @@ def create_order(request):
 def staff_dashboard(request):
     """직원용 대시보드 - 미완료/완료 목록"""
     status_filter = request.GET.get('status', 'pending')
+    time_filter = request.GET.get('time', 'today')  # today or all
+
+    # 기본 쿼리셋
+    if time_filter == 'today':
+        today = timezone.now().date()
+        base_qs = ServiceOrder.objects.filter(created_at__date=today)
+    else:
+        base_qs = ServiceOrder.objects.all()
 
     if status_filter == 'completed':
-        orders = ServiceOrder.objects.filter(status='completed')
+        orders = base_qs.filter(status='completed').order_by('-completed_at')
     else:
         # 미완료 (pending, in_progress 모두)
-        orders = ServiceOrder.objects.exclude(status='completed')
+        orders = base_qs.exclude(status='completed').order_by('-created_at')
 
-    # 오늘 통계
-    today = timezone.now().date()
-    today_orders = ServiceOrder.objects.filter(created_at__date=today)
+    # 통계
     stats = {
-        'pending': today_orders.exclude(status='completed').count(),
-        'completed': today_orders.filter(status='completed').count(),
+        'pending': base_qs.exclude(status='completed').count(),
+        'completed': base_qs.filter(status='completed').count(),
     }
 
     context = {
         'orders': orders[:100],
         'status_filter': status_filter,
+        'time_filter': time_filter,
         'stats': stats,
     }
     return render(request, 'staff/dashboard.html', context)
@@ -430,6 +437,9 @@ def send_alimtalk(request, order_id):
 
 def reservation_list(request):
     """오늘 예약 + 시공 목록"""
+    import time
+    t_start = time.time()
+
     target_date = request.GET.get('date')
     if target_date:
         try:
@@ -439,10 +449,14 @@ def reservation_list(request):
     else:
         target_date = date.today()
 
+    t1 = time.time()
+
     # 쿼리 최적화: select_related로 JOIN
     reservations = list(Reservation.objects.filter(date=target_date)
         .select_related('brand', 'car_model')
         .order_by('time'))
+
+    t2 = time.time()
 
     # 시간대를 고려해서 해당 날짜의 주문 조회
     start_of_day = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
@@ -451,6 +465,8 @@ def reservation_list(request):
         created_at__gte=start_of_day,
         created_at__lt=end_of_day
     ).select_related('brand', 'car_model').order_by('created_at'))
+
+    t3 = time.time()
 
     # 주문별 로컬 시간 미리 계산
     for order in orders:
@@ -477,6 +493,8 @@ def reservation_list(request):
         'orders_pending': sum(1 for o in orders if o.status != 'completed'),
     }
 
+    t4 = time.time()
+
     context = {
         'target_date': target_date,
         'prev_date': target_date - timedelta(days=1),
@@ -486,7 +504,13 @@ def reservation_list(request):
         'time_slots': time_slots,
         'stats': stats,
     }
-    return render(request, 'staff/reservation_list.html', context)
+
+    response = render(request, 'staff/reservation_list.html', context)
+
+    t_end = time.time()
+    print(f"[TIMING] 파싱:{(t1-t_start)*1000:.0f}ms, 예약쿼리:{(t2-t1)*1000:.0f}ms, 주문쿼리:{(t3-t2)*1000:.0f}ms, 처리:{(t4-t3)*1000:.0f}ms, 렌더:{(t_end-t4)*1000:.0f}ms, 총:{(t_end-t_start)*1000:.0f}ms")
+
+    return response
 
 
 def reservation_add(request):
@@ -592,6 +616,11 @@ def reservation_edit(request, reservation_id):
 
         if action == 'cancel':
             reservation.status = 'cancelled'
+            reservation.save()
+            return redirect('reservation_list')
+
+        if action == 'no_show':
+            reservation.status = 'no_show'
             reservation.save()
             return redirect('reservation_list')
 

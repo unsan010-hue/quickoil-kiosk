@@ -137,7 +137,7 @@ class ServiceOrder(models.Model):
     notes = models.TextField(blank=True, verbose_name='메모')
 
     # 시간
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시', db_index=True)
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='완료일시')
 
@@ -233,7 +233,7 @@ class Reservation(models.Model):
     ]
 
     # 예약 정보
-    date = models.DateField(verbose_name='예약일')
+    date = models.DateField(verbose_name='예약일', db_index=True)
     time = models.TimeField(verbose_name='예약시간')
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='고객')
 

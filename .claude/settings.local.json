@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(winget install:*)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" auth status)",
+      "Bash(git push:*)",
+      "Bash(python -m venv:*)",
+      "Bash(./venv/Scripts/pip install:*)",
+      "Bash(./venv/Scripts/django-admin:*)",
+      "Bash(./venv/Scripts/python manage.py startapp kiosk)",
+      "Bash(./venv/Scripts/python:*)",
+      "Bash(pip install:*)",
+      "Bash(python init_data.py:*)",
+      "Bash(python manage.py:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(dir \"C:\\\\Users\\\\gom\\\\unsan_7_core_works\\\\db.sqlite3\")",
+      "Bash(powershell -command \"\\(Get-Item ''C:\\\\Users\\\\gom\\\\unsan_7_core_works\\\\db.sqlite3''\\).Length / 1KB\")"
+    ]
+  }
+}

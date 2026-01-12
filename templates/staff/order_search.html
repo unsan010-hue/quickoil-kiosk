@@ -1,20 +1,13 @@
-{% extends 'base.html' %}
+{% extends 'staff/staff_base.html' %}
 {% load static humanize %}
 
 {% block title %}QuickOil - 시공 내역 검색{% endblock %}
 
-{% block content %}
+{% block staff_content %}
 <div class="bg-gray-100 min-h-screen py-6">
     <div class="mx-auto max-w-6xl px-6">
-        <!-- 헤더 -->
-        <div class="flex items-center gap-4 mb-6">
-            <button onclick="history.back()" class="p-2 bg-white rounded-lg hover:bg-gray-50">
-                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                </svg>
-            </button>
-            <h1 class="text-2xl font-bold text-gray-900">시공 내역 검색</h1>
-        </div>
+        <!-- 페이지 타이틀 -->
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">시공 내역 검색</h1>
 
         <!-- 검색 폼 -->
         <form method="get" class="mb-6">
