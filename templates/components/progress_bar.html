@@ -1,7 +1,12 @@
 {% load static %}
 <div class="border-b border-gray-200 bg-white sticky top-0 z-50">
     <nav aria-label="Progress" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <ol role="list" class="overflow-hidden flex">
+        <div class="flex items-center">
+        <!-- 홈 로고 -->
+        <a href="/" class="shrink-0 mr-2 py-2">
+            <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="h-8 w-auto">
+        </a>
+        <ol role="list" class="overflow-hidden flex flex-1">
             <!-- Step 1 -->
             <li class="relative overflow-hidden flex-1">
                 {% if current_step > 1 %}
@@ -124,5 +129,6 @@
                 </div>
             </li>
         </ol>
+        </div>
     </nav>
 </div>

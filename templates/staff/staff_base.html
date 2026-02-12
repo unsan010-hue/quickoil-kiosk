@@ -1,27 +1,29 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block header_logo %}{% endblock %}
+
 {% block content %}
 <!-- 스태프 헤더 -->
 <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
     <div class="mx-auto max-w-6xl px-6">
         <div class="flex items-center justify-between h-14">
             <!-- 로고 -->
-            <a href="{% url 'staff_dashboard' %}">
+            <a href="/">
                 <img src="{% static 'images/logo_2.jpg' %}" alt="QuickOil" class="h-8">
             </a>
 
             <!-- 네비게이션 -->
             <nav class="flex items-center gap-1">
+                <a href="{% url 'reservation_list' %}"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    {% if 'reservation' in request.resolver_match.url_name %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    예약관리
+                </a>
                 <a href="{% url 'staff_dashboard' %}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
                    {% if request.resolver_match.url_name == 'staff_dashboard' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
                     시공관리
-                </a>
-                <a href="{% url 'reservation_list' %}"
-                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                   {% if 'reservation' in request.resolver_match.url_name %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
-                    예약관리
                 </a>
                 <a href="{% url 'order_search' %}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors

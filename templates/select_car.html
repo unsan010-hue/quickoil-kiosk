@@ -3,6 +3,8 @@
 
 {% block title %}QuickOil - 차종 선택{% endblock %}
 
+{% block header_logo %}{% endblock %}
+
 {% block progress %}
 {% with current_step=1 %}
 {% include 'components/progress_bar.html' %}
@@ -107,7 +109,27 @@ const brandLogos = {
     '푸조': 'https://www.carlogos.org/car-logos/peugeot-logo.png',
 };
 
-document.addEventListener('DOMContentLoaded', renderBrands);
+document.addEventListener('DOMContentLoaded', function() {
+    renderBrands();
+
+    // URL 파라미터로 브랜드/모델 자동 선택 (예약에서 진입 시)
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectedBrand = urlParams.get('brand');
+    const preselectedModel = urlParams.get('model');
+
+    if (preselectedBrand) {
+        const brand = brandsData.find(b => b.id == preselectedBrand);
+        if (brand) {
+            selectBrand(brand.id, brand.name);
+            if (preselectedModel) {
+                const model = brand.models.find(m => m.id == preselectedModel);
+                if (model) {
+                    selectModel(model.id, model.name);
+                }
+            }
+        }
+    }
+});
 
 function renderBrands() {
     const grid = document.getElementById('brand-grid');

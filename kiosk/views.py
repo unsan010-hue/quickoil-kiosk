@@ -1,4 +1,6 @@
 import json
+from functools import wraps
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -8,9 +10,131 @@ from .models import CarBrand, CarModel, FuelType, EngineOil, AdditionalService, 
 from .services import send_service_complete_message
 
 
+# ============================================
+# 스태프 인증
+# ============================================
+
+def staff_required(view_func):
+    """스태프 인증 데코레이터 - 세션 기반 24시간 유효"""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        auth_time = request.session.get('staff_auth_time')
+        if auth_time:
+            auth_dt = datetime.fromisoformat(auth_time)
+            if timezone.now() - auth_dt < timedelta(hours=24):
+                return view_func(request, *args, **kwargs)
+        # 인증 안 됨 → 로그인 페이지로
+        return redirect(f'/staff/login/?next={request.get_full_path()}')
+    return wrapper
+
+
+def staff_login(request):
+    """스태프 로그인 페이지"""
+    error = ''
+    if request.method == 'POST':
+        password = request.POST.get('password', '')
+        if password == settings.STAFF_PASSWORD:
+            request.session['staff_authenticated'] = True
+            request.session['staff_auth_time'] = timezone.now().isoformat()
+            next_url = request.GET.get('next') or request.POST.get('next') or '/staff/'
+            return redirect(next_url)
+        error = '비밀번호가 올바르지 않습니다.'
+
+    return render(request, 'staff/login.html', {
+        'error': error,
+        'next': request.GET.get('next', '/staff/'),
+    })
+
+
 def start(request):
-    """시작 페이지 - 차량번호 입력"""
-    return render(request, 'start.html')
+    """시작 페이지 - 차량번호 입력 + 오늘의 예약/시공 사이드바"""
+    today = date.today()
+
+    # 예약 목록
+    reservations = Reservation.objects.filter(
+        date=today,
+    ).select_related('brand', 'car_model').order_by('time')
+
+    # 시공(ServiceOrder) 목록
+    start_of_day = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+    end_of_day = start_of_day + timedelta(days=1)
+    orders = ServiceOrder.objects.filter(
+        created_at__gte=start_of_day,
+        created_at__lt=end_of_day,
+    ).select_related('brand', 'car_model').order_by('created_at')
+
+    STATUS_BADGE = {
+        'reserved': '예약',
+        'arrived': '도착',
+        'in_progress': '시공중',
+        'completed': '완료',
+        'cancelled': '취소',
+        'no_show': '노쇼',
+    }
+
+    sidebar_items = []
+
+    for r in reservations:
+        if r.car_number:
+            display_label = r.car_number[-4:]
+        elif r.customer_name:
+            name = r.customer_name
+            if len(name) == 2:
+                display_label = name[0] + '*'
+            elif len(name) >= 3:
+                display_label = name[0] + '*' * (len(name) - 2) + name[-1]
+            else:
+                display_label = name
+        else:
+            display_label = '예약'
+
+        model_name = r.car_model.name if r.car_model else '-'
+        badge = STATUS_BADGE.get(r.status, r.status)
+
+        sidebar_items.append({
+            'type': 'reservation',
+            'id': r.id,
+            'time': r.time.strftime('%H:%M'),
+            'sort_key': r.time.strftime('%H%M'),
+            'display_label': display_label,
+            'model_name': model_name,
+            'badge': badge,
+            'status': r.status,
+            'car_number': r.car_number or '',
+            'brand_id': r.brand_id or '',
+            'model_id': r.car_model_id or '',
+        })
+
+    for o in orders:
+        local_time = timezone.localtime(o.created_at)
+        if o.car_number:
+            display_label = o.car_number[-4:]
+        else:
+            display_label = '-'
+
+        model_name = o.car_model.name if o.car_model else '-'
+        badge = '완료' if o.status == 'completed' else '시공'
+
+        sidebar_items.append({
+            'type': 'order',
+            'id': o.id,
+            'time': local_time.strftime('%H:%M'),
+            'sort_key': local_time.strftime('%H%M'),
+            'display_label': display_label,
+            'model_name': model_name,
+            'badge': badge,
+            'status': o.status,
+            'car_number': o.car_number or '',
+            'brand_id': o.brand_id or '',
+            'model_id': o.car_model_id or '',
+        })
+
+    sidebar_items.sort(key=lambda x: x['sort_key'])
+
+    context = {
+        'sidebar_items': sidebar_items,
+    }
+    return render(request, 'start.html', context)
 
 
 def select_car(request):
@@ -295,6 +419,7 @@ def create_order(request):
     return JsonResponse({'success': True, 'order_id': order.id})
 
 
+@staff_required
 def staff_dashboard(request):
     """직원용 대시보드 - 미완료/완료 목록"""
     status_filter = request.GET.get('status', 'pending')
@@ -328,6 +453,7 @@ def staff_dashboard(request):
     return render(request, 'staff/dashboard.html', context)
 
 
+@staff_required
 def order_detail(request, order_id):
     """주문 상세 / 편집 페이지"""
     order = get_object_or_404(ServiceOrder, id=order_id)
@@ -363,6 +489,7 @@ def order_detail(request, order_id):
     return render(request, 'staff/order_detail.html', context)
 
 
+@staff_required
 def order_search(request):
     """시공 내역 검색"""
     query = request.GET.get('q', '')
@@ -387,6 +514,7 @@ def order_complete(request):
     return render(request, 'order_complete.html', context)
 
 
+@staff_required
 def store_settings(request):
     """지점 설정 페이지"""
     settings = StoreSettings.get_settings()
@@ -406,6 +534,7 @@ def store_settings(request):
     return render(request, 'staff/store_settings.html', context)
 
 
+@staff_required
 @require_POST
 def send_alimtalk(request, order_id):
     """알림톡 발송"""
@@ -435,6 +564,7 @@ def send_alimtalk(request, order_id):
 # 예약 관리
 # ============================================
 
+@staff_required
 def reservation_list(request):
     """오늘 예약 + 시공 목록"""
     import time
@@ -513,6 +643,7 @@ def reservation_list(request):
     return response
 
 
+@staff_required
 def reservation_add(request):
     """예약 추가"""
     if request.method == 'POST':
@@ -603,6 +734,7 @@ def reservation_add(request):
     return render(request, 'staff/reservation_add.html', context)
 
 
+@staff_required
 def reservation_edit(request, reservation_id):
     """예약 수정"""
     reservation = get_object_or_404(Reservation, id=reservation_id)

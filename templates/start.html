@@ -3,6 +3,8 @@
 
 {% block title %}QuickOil - 시작{% endblock %}
 
+{% block header_logo %}{% endblock %}
+
 {% block content %}
 <!-- 우상단 직원 메뉴 -->
 <div class="fixed top-4 right-4 z-50 flex gap-2">
@@ -17,9 +19,74 @@
     </a>
 </div>
 
+{% if sidebar_items %}
+<div class="start-layout">
+    <!-- 왼쪽: 오늘의 현황 사이드바 -->
+    <div class="reservation-sidebar">
+        <div class="sidebar-title">오늘의 현황</div>
+        {% for item in sidebar_items %}
+        <a href="{% if item.type == 'order' %}{% url 'order_detail' item.id %}{% else %}{% url 'select_car' %}?car_number={{ item.car_number|urlencode }}{% if item.brand_id %}&brand={{ item.brand_id }}{% endif %}{% if item.model_id %}&model={{ item.model_id }}{% endif %}&reservation_id={{ item.id }}{% endif %}"
+           class="reservation-item">
+            <span class="reservation-time">{{ item.time }}</span>
+            <span class="reservation-car">{{ item.display_label }}</span>
+            <span class="reservation-model">{{ item.model_name }}</span>
+            <span class="sidebar-badge sidebar-badge--{{ item.status }}">{{ item.badge }}</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- 오른쪽: 기존 폼 -->
+    <div class="start-main">
+        <div class="logo-wrapper">
+            <a href="/">
+                <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="logo">
+            </a>
+        </div>
+
+        <form id="start-form" action="{% url 'select_car' %}" method="GET" class="start-form">
+            <div class="input-wrapper">
+                <input
+                    type="tel"
+                    id="phone-input"
+                    name="phone"
+                    placeholder="전화번호 뒷자리 (예: 5678)"
+                    class="car-input"
+                    autocomplete="off"
+                    style="margin-bottom: 12px;"
+                >
+                <input
+                    type="text"
+                    id="car-number-input"
+                    name="car_number"
+                    placeholder="차량번호 입력"
+                    class="car-input"
+                    autocomplete="off"
+                >
+            </div>
+
+            <!-- 예약 매칭 결과 -->
+            <div id="reservation-info" class="hidden" style="margin-bottom: 16px; padding: 16px; background: #FFF7ED; border-radius: 12px; text-align: center;">
+                <p style="color: #EA580C; font-weight: 600; margin-bottom: 4px;">
+                    <span id="res-name"></span>님 예약 확인!
+                </p>
+                <p style="color: #9CA3AF; font-size: 14px;">
+                    <span id="res-time"></span> 예약
+                </p>
+            </div>
+
+            <button type="submit" class="start-button">
+                시작하기
+            </button>
+        </form>
+    </div>
+</div>
+{% else %}
+<!-- 예약/시공 없을 때: 기존 레이아웃 -->
 <div class="start-container">
     <div class="logo-wrapper">
-        <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="logo">
+        <a href="/">
+            <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="logo">
+        </a>
     </div>
 
     <form id="start-form" action="{% url 'select_car' %}" method="GET" class="start-form">
@@ -58,6 +125,7 @@
         </button>
     </form>
 </div>
+{% endif %}
 
 <script>
 const phoneInput = document.getElementById('phone-input');

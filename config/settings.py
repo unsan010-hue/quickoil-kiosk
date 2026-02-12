@@ -124,6 +124,9 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# 스태프 인증
+STAFF_PASSWORD = os.getenv('STAFF_PASSWORD', 'q51!')
+
 # 뿌리오 알림톡 설정
 PPURIO_ACCOUNT = os.getenv('PPURIO_ACCOUNT', '')
 PPURIO_API_KEY = os.getenv('PPURIO_API_KEY', '')

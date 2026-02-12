@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/order/<int:order_id>/send-alimtalk/', views.send_alimtalk, name='send_alimtalk'),
 
     # 직원용
+    path('staff/login/', views.staff_login, name='staff_login'),
     path('staff/', views.staff_dashboard, name='staff_dashboard'),
     path('staff/order/<int:order_id>/', views.order_detail, name='order_detail'),
     path('staff/search/', views.order_search, name='order_search'),

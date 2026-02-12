@@ -25,6 +25,120 @@ body {
 }
 
 /* 시작 페이지 */
+.start-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.reservation-sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: #F9FAFB;
+    border-right: 1px solid #E5E7EB;
+    padding: 32px 20px;
+    overflow-y: auto;
+}
+
+.sidebar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #E5E7EB;
+}
+
+.reservation-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: #fff;
+    border: 2px solid #E5E7EB;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+}
+
+.reservation-item:hover {
+    border-color: #F97316;
+    background: #FFF7ED;
+    transform: translateX(4px);
+}
+
+.reservation-item:active {
+    transform: scale(0.98);
+}
+
+.reservation-time {
+    font-size: 15px;
+    font-weight: 700;
+    color: #F97316;
+    white-space: nowrap;
+}
+
+.reservation-car {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    letter-spacing: 1px;
+}
+
+.reservation-model {
+    font-size: 13px;
+    color: #9CA3AF;
+    white-space: nowrap;
+}
+
+.sidebar-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.sidebar-badge--reserved {
+    background: #FFF7ED;
+    color: #EA580C;
+}
+
+.sidebar-badge--arrived {
+    background: #EFF6FF;
+    color: #2563EB;
+}
+
+.sidebar-badge--in_progress,
+.sidebar-badge--pending {
+    background: #F0FDF4;
+    color: #16A34A;
+}
+
+.sidebar-badge--completed {
+    background: #F3F4F6;
+    color: #6B7280;
+}
+
+.sidebar-badge--cancelled,
+.sidebar-badge--no_show {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+
+.start-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
 .start-container {
     display: flex;
     flex-direction: column;
@@ -238,5 +352,21 @@ body {
     text-align: center;
     color: #999;
     padding: 40px;
+}
+
+/* 헤더 로고 (base.html) */
+.header-logo-link {
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    z-index: 50;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
+
+.header-logo-img {
+    height: 36px;
+    width: auto;
 }
 

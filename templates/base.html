@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
+    {% block header_logo %}
+    <a href="/" class="header-logo-link">
+        <img src="{% static 'images/logo.jpg' %}" alt="QuickOil" class="header-logo-img">
+    </a>
+    {% endblock %}
+
     {% block progress %}{% endblock %}
 
     {% if car_number %}
