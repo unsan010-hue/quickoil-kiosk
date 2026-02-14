@@ -27,8 +27,9 @@ urlpatterns = [
     path('staff/reservations/<int:reservation_id>/', views.reservation_edit, name='reservation_edit'),
     path('api/check-reservation/', views.check_reservation, name='check_reservation'),
 
-    # 오일 가격 관리
+    # 가격 관리
     path('staff/oil-prices/', views.oil_price_management, name='oil_price_management'),
+    path('staff/services/', views.service_management, name='service_management'),
     path('api/oil-prices/save/', views.oil_price_save, name='oil_price_save'),
     path('api/car-models/add/', views.car_model_add, name='car_model_add'),
     path('api/car-models/<int:model_id>/delete/', views.car_model_delete, name='car_model_delete'),

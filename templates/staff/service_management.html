@@ -1,0 +1,268 @@
+{% extends 'staff/staff_base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 추가 서비스 관리{% endblock %}
+
+{% block staff_content %}
+<div class="bg-gray-100 min-h-screen pb-24">
+    <div class="mx-auto max-w-3xl px-6 pt-6">
+        <h1 class="text-xl font-bold text-gray-800 mb-4">추가 서비스 관리</h1>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="text-left px-4 py-3 font-semibold text-gray-700 w-48">서비스명</th>
+                        <th class="text-left px-4 py-3 font-semibold text-gray-700">설명</th>
+                        <th class="text-center px-4 py-3 font-semibold text-gray-700 w-32">가격</th>
+                        <th class="text-center px-4 py-3 font-semibold text-gray-700 w-20">활성</th>
+                        <th class="w-10"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for svc in services %}
+                    <tr class="border-t border-gray-100 hover:bg-blue-50/30 group" data-svc-id="{{ svc.id }}">
+                        <td class="px-4 py-1.5">
+                            <input type="text" class="svc-field w-full px-2 py-1.5 rounded border border-transparent hover:border-gray-300 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none text-sm"
+                                   value="{{ svc.name }}" data-field="name" data-original="{{ svc.name }}">
+                        </td>
+                        <td class="px-4 py-1.5">
+                            <input type="text" class="svc-field w-full px-2 py-1.5 rounded border border-transparent hover:border-gray-300 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none text-sm"
+                                   value="{{ svc.description }}" data-field="description" data-original="{{ svc.description }}" placeholder="-">
+                        </td>
+                        <td class="px-1 py-1.5">
+                            <input type="text" inputmode="numeric"
+                                   class="svc-field w-full text-center px-2 py-1.5 rounded border border-transparent hover:border-gray-300 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none text-sm tabular-nums"
+                                   value="{{ svc.price }}" data-field="price" data-original="{{ svc.price }}">
+                        </td>
+                        <td class="text-center px-4 py-1.5">
+                            <input type="checkbox" class="svc-field w-4 h-4 accent-orange-500 cursor-pointer"
+                                   {% if svc.is_active %}checked{% endif %} data-field="is_active" data-original="{% if svc.is_active %}1{% else %}0{% endif %}">
+                        </td>
+                        <td class="px-0 py-1">
+                            <button onclick="deleteService({{ svc.id }}, '{{ svc.name }}')"
+                                    class="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 transition-all" title="삭제">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-10 text-gray-400">등록된 서비스가 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 서비스 추가 -->
+        <div class="mt-3 flex items-center gap-2">
+            <input type="text" id="newSvcName" placeholder="서비스명"
+                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none w-40">
+            <input type="text" id="newSvcDesc" placeholder="설명 (선택)"
+                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none w-48">
+            <input type="text" id="newSvcPrice" placeholder="가격" inputmode="numeric"
+                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none w-28">
+            <button onclick="addService()" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                + 서비스 추가
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 저장 바 -->
+<div id="saveBar" class="fixed bottom-0 left-0 right-0 z-50 translate-y-full transition-transform duration-300">
+    <div class="bg-white border-t border-gray-200 shadow-lg">
+        <div class="mx-auto max-w-3xl px-6 py-3 flex items-center justify-between">
+            <span class="text-sm text-gray-600">
+                <span id="changeCount" class="font-bold text-orange-600">0</span>건 수정됨
+            </span>
+            <div class="flex items-center gap-3">
+                <button onclick="discardChanges()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+                    취소
+                </button>
+                <button onclick="saveChanges()" id="saveBtn"
+                        class="px-6 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    저장
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const svcChanges = {};
+
+function getCookie(name) {
+    let val = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
+    });
+    return val;
+}
+
+function updateSaveBar() {
+    const count = Object.keys(svcChanges).length;
+    document.getElementById('changeCount').textContent = count;
+    const bar = document.getElementById('saveBar');
+    if (count > 0) {
+        bar.classList.remove('translate-y-full');
+    } else {
+        bar.classList.add('translate-y-full');
+    }
+}
+
+// 변경 추적
+document.querySelectorAll('.svc-field').forEach(input => {
+    const handler = function() {
+        const row = this.closest('tr');
+        const svcId = row.dataset.svcId;
+        const field = this.dataset.field;
+        const original = this.dataset.original;
+        let current;
+
+        if (this.type === 'checkbox') {
+            current = this.checked ? '1' : '0';
+        } else {
+            current = this.value;
+        }
+
+        if (!svcChanges[svcId]) svcChanges[svcId] = {};
+
+        if (current !== original) {
+            svcChanges[svcId][field] = this.type === 'checkbox' ? this.checked : current;
+            if (this.type !== 'checkbox') {
+                this.classList.add('bg-yellow-50', 'border-yellow-300');
+                this.classList.remove('border-transparent');
+            }
+        } else {
+            delete svcChanges[svcId][field];
+            if (Object.keys(svcChanges[svcId]).length === 0) delete svcChanges[svcId];
+            if (this.type !== 'checkbox') {
+                this.classList.remove('bg-yellow-50', 'border-yellow-300');
+                this.classList.add('border-transparent');
+            }
+        }
+        updateSaveBar();
+    };
+
+    if (input.type === 'checkbox') {
+        input.addEventListener('change', handler);
+    } else {
+        input.addEventListener('input', handler);
+    }
+});
+
+function discardChanges() {
+    document.querySelectorAll('.svc-field').forEach(input => {
+        if (input.type === 'checkbox') {
+            input.checked = input.dataset.original === '1';
+        } else {
+            input.value = input.dataset.original;
+            input.classList.remove('bg-yellow-50', 'border-yellow-300');
+            input.classList.add('border-transparent');
+        }
+    });
+    for (const key in svcChanges) delete svcChanges[key];
+    updateSaveBar();
+}
+
+async function saveChanges() {
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
+    try {
+        const svcList = [];
+        for (const [svcId, fields] of Object.entries(svcChanges)) {
+            svcList.push({ id: parseInt(svcId), ...fields });
+        }
+        const resp = await fetch('{% url "service_save" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ services: svcList }),
+        });
+        const data = await resp.json();
+        if (!data.success) {
+            alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
+            return;
+        }
+        // 성공: 원본값 업데이트 + 초록 플래시
+        for (const svcId of Object.keys(svcChanges)) {
+            const row = document.querySelector(`tr[data-svc-id="${svcId}"]`);
+            if (row) {
+                row.querySelectorAll('.svc-field').forEach(input => {
+                    if (input.type === 'checkbox') {
+                        input.dataset.original = input.checked ? '1' : '0';
+                    } else {
+                        input.dataset.original = input.value;
+                        input.classList.remove('bg-yellow-50', 'border-yellow-300');
+                        input.classList.add('bg-green-50', 'border-green-300');
+                        setTimeout(() => {
+                            input.classList.remove('bg-green-50', 'border-green-300');
+                            input.classList.add('border-transparent');
+                        }, 1500);
+                    }
+                });
+            }
+        }
+        for (const key in svcChanges) delete svcChanges[key];
+        updateSaveBar();
+    } catch (err) {
+        alert('저장 중 오류: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '저장';
+    }
+}
+
+// 서비스 추가
+async function addService() {
+    const name = document.getElementById('newSvcName').value.trim();
+    const desc = document.getElementById('newSvcDesc').value.trim();
+    const price = document.getElementById('newSvcPrice').value.replace(/[^0-9]/g, '');
+    if (!name || !price) {
+        alert('서비스명과 가격을 입력하세요.');
+        return;
+    }
+    try {
+        const resp = await fetch('{% url "service_add" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ name, description: desc, price: parseInt(price) }),
+        });
+        const data = await resp.json();
+        if (data.success) { location.reload(); }
+        else { alert(data.error || '추가 실패'); }
+    } catch (err) { alert('오류: ' + err.message); }
+}
+
+// 서비스 삭제
+async function deleteService(svcId, svcName) {
+    if (!confirm(svcName + ' 서비스를 삭제하시겠습니까?')) return;
+    try {
+        const resp = await fetch('/api/services/' + svcId + '/delete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        });
+        const data = await resp.json();
+        if (data.success) { location.reload(); }
+        else { alert(data.error || '삭제 실패'); }
+    } catch (err) { alert('오류: ' + err.message); }
+}
+
+// 미저장 경고
+window.addEventListener('beforeunload', function(e) {
+    if (Object.keys(svcChanges).length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+</script>
+{% endblock %}

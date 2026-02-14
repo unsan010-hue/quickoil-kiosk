@@ -35,6 +35,11 @@
                    {% if request.resolver_match.url_name == 'oil_price_management' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
                     가격관리
                 </a>
+                <a href="{% url 'service_management' %}"
+                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                   {% if request.resolver_match.url_name == 'service_management' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    서비스관리
+                </a>
                 <a href="{% url 'store_settings' %}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
                    {% if request.resolver_match.url_name == 'store_settings' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">

@@ -938,9 +938,6 @@ def oil_price_management(request):
                 'prices': price_list,
             })
 
-    # 추가 서비스 목록
-    services = AdditionalService.objects.all().order_by('order', 'name')
-
     context = {
         'brands': brands,
         'fuel_types': fuel_types,
@@ -948,9 +945,15 @@ def oil_price_management(request):
         'selected_fuel': selected_fuel,
         'oil_products': oil_products,
         'rows': rows,
-        'services': services,
     }
     return render(request, 'staff/oil_prices.html', context)
+
+
+@staff_required
+def service_management(request):
+    """추가 서비스 관리 페이지"""
+    services = AdditionalService.objects.all().order_by('order', 'name')
+    return render(request, 'staff/service_management.html', {'services': services})
 
 
 @staff_required
