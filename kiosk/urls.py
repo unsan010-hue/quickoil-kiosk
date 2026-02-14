@@ -32,4 +32,9 @@ urlpatterns = [
     path('api/oil-prices/save/', views.oil_price_save, name='oil_price_save'),
     path('api/car-models/add/', views.car_model_add, name='car_model_add'),
     path('api/car-models/<int:model_id>/delete/', views.car_model_delete, name='car_model_delete'),
+
+    # 추가 서비스 관리
+    path('api/services/save/', views.service_save, name='service_save'),
+    path('api/services/add/', views.service_add, name='service_add'),
+    path('api/services/<int:service_id>/delete/', views.service_delete, name='service_delete'),
 ]

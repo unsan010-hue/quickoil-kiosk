@@ -938,6 +938,9 @@ def oil_price_management(request):
                 'prices': price_list,
             })
 
+    # 추가 서비스 목록
+    services = AdditionalService.objects.all().order_by('order', 'name')
+
     context = {
         'brands': brands,
         'fuel_types': fuel_types,
@@ -945,6 +948,7 @@ def oil_price_management(request):
         'selected_fuel': selected_fuel,
         'oil_products': oil_products,
         'rows': rows,
+        'services': services,
     }
     return render(request, 'staff/oil_prices.html', context)
 
@@ -1069,6 +1073,74 @@ def car_model_delete(request, model_id):
         OilPrice.objects.filter(car_model=model).delete()
         model.delete()
 
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def service_save(request):
+    """추가 서비스 일괄 수정 API"""
+    try:
+        data = json.loads(request.body)
+        services = data.get('services', [])
+
+        for item in services:
+            svc_id = item.get('id')
+            if not svc_id:
+                continue
+            svc = AdditionalService.objects.filter(id=svc_id).first()
+            if not svc:
+                continue
+
+            if 'name' in item:
+                svc.name = item['name']
+            if 'description' in item:
+                svc.description = item['description']
+            if 'price' in item:
+                svc.price = int(item['price'])
+            if 'is_active' in item:
+                svc.is_active = bool(item['is_active'])
+            svc.save()
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def service_add(request):
+    """추가 서비스 생성 API"""
+    try:
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        price = int(data.get('price', 0))
+
+        if not name or not price:
+            return JsonResponse({'success': False, 'error': '서비스명과 가격을 입력하세요.'}, status=400)
+
+        svc = AdditionalService.objects.create(
+            name=name,
+            description=description,
+            price=price,
+            is_active=True,
+        )
+
+        return JsonResponse({'success': True, 'service': {'id': svc.id, 'name': svc.name}})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def service_delete(request, service_id):
+    """추가 서비스 삭제 API"""
+    try:
+        svc = get_object_or_404(AdditionalService, id=service_id)
+        svc.delete()
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
