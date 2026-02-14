@@ -4,6 +4,13 @@
 {% block title %}QuickOil - 추가 서비스 관리{% endblock %}
 
 {% block staff_content %}
+<style>
+    tr.dragging { opacity: 0.4; }
+    tr.drag-over td { border-top: 2px solid #f97316 !important; }
+    .drag-handle { cursor: grab; }
+    .drag-handle:active { cursor: grabbing; }
+</style>
+
 <div class="bg-gray-100 min-h-screen pb-24">
     <div class="mx-auto max-w-3xl px-6 pt-6">
         <h1 class="text-xl font-bold text-gray-800 mb-4">추가 서비스 관리</h1>
@@ -12,7 +19,7 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200">
-                        <th class="text-center px-2 py-3 font-semibold text-gray-700 w-16">순서</th>
+                        <th class="w-10"></th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-700 w-48">서비스명</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-700">설명</th>
                         <th class="text-center px-4 py-3 font-semibold text-gray-700 w-32">가격</th>
@@ -20,17 +27,14 @@
                         <th class="w-10"></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="svcBody">
                     {% for svc in services %}
-                    <tr class="border-t border-gray-100 hover:bg-blue-50/30 group" data-svc-id="{{ svc.id }}">
-                        <td class="text-center px-1 py-1">
-                            <div class="flex flex-col items-center gap-0.5">
-                                <button onclick="moveRow(this, -1)" class="p-0.5 text-gray-300 hover:text-gray-600 transition-colors" title="위로">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
-                                </button>
-                                <button onclick="moveRow(this, 1)" class="p-0.5 text-gray-300 hover:text-gray-600 transition-colors" title="아래로">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
+                    <tr class="border-t border-gray-100 hover:bg-blue-50/30 group" data-svc-id="{{ svc.id }}" data-orig-idx="{{ forloop.counter0 }}" draggable="true">
+                        <td class="text-center px-2 py-1">
+                            <div class="drag-handle text-gray-300 hover:text-gray-500 transition-colors">
+                                <svg class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                                </svg>
                             </div>
                         </td>
                         <td class="px-4 py-1.5">
@@ -105,6 +109,8 @@
 
 <script>
 const svcChanges = {};
+let orderChanged = false;
+let dragRow = null;
 
 function getCookie(name) {
     let val = null;
@@ -115,8 +121,13 @@ function getCookie(name) {
     return val;
 }
 
+function hasChanges() {
+    return Object.keys(svcChanges).length > 0 || orderChanged;
+}
+
 function updateSaveBar() {
-    const count = Object.keys(svcChanges).length;
+    let count = Object.keys(svcChanges).length;
+    if (orderChanged) count++;
     document.getElementById('changeCount').textContent = count;
     const bar = document.getElementById('saveBar');
     if (count > 0) {
@@ -126,7 +137,67 @@ function updateSaveBar() {
     }
 }
 
-// 변경 추적
+// 순서 변경 감지
+function checkOrderChanged() {
+    const rows = [...document.querySelectorAll('#svcBody tr[data-svc-id]')];
+    orderChanged = rows.some((row, i) => parseInt(row.dataset.origIdx) !== i);
+    updateSaveBar();
+}
+
+// === 드래그 앤 드롭 ===
+const tbody = document.getElementById('svcBody');
+
+tbody.addEventListener('dragstart', function(e) {
+    const row = e.target.closest('tr[data-svc-id]');
+    if (!row) return;
+    dragRow = row;
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+});
+
+tbody.addEventListener('dragend', function(e) {
+    const row = e.target.closest('tr[data-svc-id]');
+    if (row) row.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+    dragRow = null;
+});
+
+tbody.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr[data-svc-id]');
+    if (!targetRow || targetRow === dragRow) return;
+
+    document.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+    targetRow.classList.add('drag-over');
+});
+
+tbody.addEventListener('dragleave', function(e) {
+    const targetRow = e.target.closest('tr[data-svc-id]');
+    if (targetRow) targetRow.classList.remove('drag-over');
+});
+
+tbody.addEventListener('drop', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+
+    const targetRow = e.target.closest('tr[data-svc-id]');
+    if (!targetRow || !dragRow || targetRow === dragRow) return;
+
+    // 위치 판단: 드롭 대상 위/아래
+    const rect = targetRow.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    if (e.clientY < midY) {
+        tbody.insertBefore(dragRow, targetRow);
+    } else {
+        tbody.insertBefore(dragRow, targetRow.nextSibling);
+    }
+
+    checkOrderChanged();
+});
+
+// === 필드 변경 추적 ===
 document.querySelectorAll('.svc-field').forEach(input => {
     const handler = function() {
         const row = this.closest('tr');
@@ -168,6 +239,7 @@ document.querySelectorAll('.svc-field').forEach(input => {
 });
 
 function discardChanges() {
+    // 필드 복원
     document.querySelectorAll('.svc-field').forEach(input => {
         if (input.type === 'checkbox') {
             input.checked = input.dataset.original === '1';
@@ -178,6 +250,14 @@ function discardChanges() {
         }
     });
     for (const key in svcChanges) delete svcChanges[key];
+
+    // 순서 복원
+    if (orderChanged) {
+        const rows = [...document.querySelectorAll('#svcBody tr[data-svc-id]')];
+        rows.sort((a, b) => parseInt(a.dataset.origIdx) - parseInt(b.dataset.origIdx));
+        rows.forEach(r => tbody.appendChild(r));
+        orderChanged = false;
+    }
     updateSaveBar();
 }
 
@@ -187,43 +267,64 @@ async function saveChanges() {
     btn.textContent = '저장 중...';
 
     try {
+        // 필드 변경 저장
         const svcList = [];
         for (const [svcId, fields] of Object.entries(svcChanges)) {
             svcList.push({ id: parseInt(svcId), ...fields });
         }
-        const resp = await fetch('{% url "service_save" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken'),
-            },
-            body: JSON.stringify({ services: svcList }),
-        });
-        const data = await resp.json();
-        if (!data.success) {
-            alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
-            return;
-        }
-        // 성공: 원본값 업데이트 + 초록 플래시
-        for (const svcId of Object.keys(svcChanges)) {
-            const row = document.querySelector(`tr[data-svc-id="${svcId}"]`);
-            if (row) {
-                row.querySelectorAll('.svc-field').forEach(input => {
-                    if (input.type === 'checkbox') {
-                        input.dataset.original = input.checked ? '1' : '0';
-                    } else {
-                        input.dataset.original = input.value;
-                        input.classList.remove('bg-yellow-50', 'border-yellow-300');
-                        input.classList.add('bg-green-50', 'border-green-300');
-                        setTimeout(() => {
-                            input.classList.remove('bg-green-50', 'border-green-300');
-                            input.classList.add('border-transparent');
-                        }, 1500);
-                    }
-                });
+        if (svcList.length > 0) {
+            const resp = await fetch('{% url "service_save" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ services: svcList }),
+            });
+            const data = await resp.json();
+            if (!data.success) {
+                alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
+                return;
             }
+            // 원본값 업데이트 + 초록 플래시
+            for (const svcId of Object.keys(svcChanges)) {
+                const row = document.querySelector(`tr[data-svc-id="${svcId}"]`);
+                if (row) {
+                    row.querySelectorAll('.svc-field').forEach(input => {
+                        if (input.type === 'checkbox') {
+                            input.dataset.original = input.checked ? '1' : '0';
+                        } else {
+                            input.dataset.original = input.value;
+                            input.classList.remove('bg-yellow-50', 'border-yellow-300');
+                            input.classList.add('bg-green-50', 'border-green-300');
+                            setTimeout(() => {
+                                input.classList.remove('bg-green-50', 'border-green-300');
+                                input.classList.add('border-transparent');
+                            }, 1500);
+                        }
+                    });
+                }
+            }
+            for (const key in svcChanges) delete svcChanges[key];
         }
-        for (const key in svcChanges) delete svcChanges[key];
+
+        // 순서 변경 저장
+        if (orderChanged) {
+            const rows = [...document.querySelectorAll('#svcBody tr[data-svc-id]')];
+            const orderList = rows.map((r, i) => ({ id: parseInt(r.dataset.svcId), order: i }));
+
+            const resp = await fetch('{% url "service_reorder" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ order: orderList }),
+            });
+            const data = await resp.json();
+            if (!data.success) {
+                alert('순서 저장 실패: ' + (data.error || '알 수 없는 오류'));
+                return;
+            }
+            // origIdx 업데이트
+            rows.forEach((r, i) => r.dataset.origIdx = i);
+            orderChanged = false;
+        }
+
         updateSaveBar();
     } catch (err) {
         alert('저장 중 오류: ' + err.message);
@@ -268,48 +369,9 @@ async function deleteService(svcId, svcName) {
     } catch (err) { alert('오류: ' + err.message); }
 }
 
-// 순서 변경
-async function moveRow(btn, direction) {
-    const row = btn.closest('tr');
-    const tbody = row.parentElement;
-    const rows = [...tbody.querySelectorAll('tr[data-svc-id]')];
-    const idx = rows.indexOf(row);
-    const targetIdx = idx + direction;
-
-    if (targetIdx < 0 || targetIdx >= rows.length) return;
-
-    const targetRow = rows[targetIdx];
-
-    // DOM 이동
-    if (direction === -1) {
-        tbody.insertBefore(row, targetRow);
-    } else {
-        tbody.insertBefore(targetRow, row);
-    }
-
-    // 새 순서 수집 → 즉시 저장
-    const newRows = [...tbody.querySelectorAll('tr[data-svc-id]')];
-    const orderList = newRows.map((r, i) => ({ id: parseInt(r.dataset.svcId), order: i }));
-
-    // 이동 애니메이션
-    row.classList.add('bg-orange-50');
-    setTimeout(() => row.classList.remove('bg-orange-50'), 400);
-
-    try {
-        await fetch('{% url "service_reorder" %}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ order: orderList }),
-        });
-    } catch (err) {
-        // 실패 시 되돌리기
-        location.reload();
-    }
-}
-
 // 미저장 경고
 window.addEventListener('beforeunload', function(e) {
-    if (Object.keys(svcChanges).length > 0) {
+    if (hasChanges()) {
         e.preventDefault();
         e.returnValue = '';
     }
