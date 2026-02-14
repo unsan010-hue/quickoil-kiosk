@@ -30,6 +30,11 @@
                    {% if request.resolver_match.url_name == 'order_search' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
                     주문검색
                 </a>
+                <a href="{% url 'oil_price_management' %}"
+                   class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                   {% if request.resolver_match.url_name == 'oil_price_management' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+                    가격관리
+                </a>
                 <a href="{% url 'store_settings' %}"
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
                    {% if request.resolver_match.url_name == 'store_settings' %}bg-orange-100 text-orange-700{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
@@ -39,6 +44,20 @@
         </div>
     </div>
 </header>
+
+<!-- 알림 메시지 -->
+{% if messages %}
+{% for message in messages %}
+<div class="mx-auto max-w-6xl px-6 mt-2">
+    <div class="px-4 py-3 rounded-lg text-sm font-medium
+        {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-700 border border-yellow-200
+        {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
 
 <!-- 페이지 컨텐츠 -->
 {% block staff_content %}{% endblock %}

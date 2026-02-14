@@ -20,7 +20,7 @@
             <div class="flex items-center justify-center gap-6 text-base flex-wrap">
                 <div class="flex items-center gap-2">
                     <span class="text-gray-500">차량</span>
-                    <span class="font-semibold text-gray-800">{{ brand.name }} {{ car_model.name }}</span>
+                    <span class="font-semibold text-gray-800">{{ brand.name }} {% if car_model.parent %}{{ car_model.parent.name }} {{ car_model.name }}{% else %}{{ car_model.name }}{% endif %}</span>
                 </div>
                 <span class="text-gray-300">|</span>
                 <div class="flex items-center gap-2">
@@ -112,6 +112,7 @@ const modelId = '{{ model_id }}';
 const fuelId = '{{ fuel_id }}';
 const oilId = '{{ oil_id }}';
 const oilPrice = {{ oil.price }};
+const oilPriceParam = '{{ oil_price }}';
 const carNumber = '{{ car_number|default:"" }}';
 
 function toggleService(item) {
@@ -173,8 +174,8 @@ function updateSelection() {
     const total = oilPrice + servicesTotal;
     document.getElementById('total-price').textContent = total.toLocaleString() + '원';
 
-    // URL 업데이트
-    let url = '/estimate/?brand=' + brandId + '&model=' + modelId + '&fuel=' + fuelId + '&oil=' + oilId;
+    // URL 업데이트 (oil_price 포함)
+    let url = '/estimate/?brand=' + brandId + '&model=' + modelId + '&fuel=' + fuelId + '&oil=' + oilId + '&oil_price=' + oilPriceParam;
     if (selectedIds.length > 0) {
         url += '&services=' + selectedIds.join(',');
     }

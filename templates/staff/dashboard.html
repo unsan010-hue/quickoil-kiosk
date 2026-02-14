@@ -88,6 +88,35 @@
             </div>
             {% endif %}
         </div>
+
+        {% if orders.has_other_pages %}
+        <div class="flex items-center justify-center gap-2 mt-6">
+            {% if orders.has_previous %}
+            <a href="?status={{ status_filter }}&time={{ time_filter }}&page={{ orders.previous_page_number }}"
+               class="px-3 py-2 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                이전
+            </a>
+            {% endif %}
+
+            {% for num in orders.paginator.page_range %}
+                {% if orders.number == num %}
+                <span class="px-3 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium">{{ num }}</span>
+                {% elif num > orders.number|add:"-3" and num < orders.number|add:"3" %}
+                <a href="?status={{ status_filter }}&time={{ time_filter }}&page={{ num }}"
+                   class="px-3 py-2 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                    {{ num }}
+                </a>
+                {% endif %}
+            {% endfor %}
+
+            {% if orders.has_next %}
+            <a href="?status={{ status_filter }}&time={{ time_filter }}&page={{ orders.next_page_number }}"
+               class="px-3 py-2 rounded-lg bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                다음
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

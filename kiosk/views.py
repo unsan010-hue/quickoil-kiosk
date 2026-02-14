@@ -1,13 +1,16 @@
 import json
 from functools import wraps
 from django.conf import settings
+from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
 from datetime import date, datetime, timedelta
-from .models import CarBrand, CarModel, FuelType, EngineOil, AdditionalService, ServiceOrder, ServiceOrderItem, StoreSettings, Customer, Reservation
+from .models import CarBrand, CarModel, FuelType, EngineOil, AdditionalService, ServiceOrder, ServiceOrderItem, StoreSettings, Customer, Reservation, OilProduct, OilPrice
 from .services import send_service_complete_message
+from .ecount import create_sales_slip, create_purchase_slip
 
 
 # ============================================
@@ -137,20 +140,32 @@ def start(request):
     return render(request, 'start.html', context)
 
 
-def select_car(request):
-    """차종 선택 페이지 (브랜드/차종/연료 한 페이지에서)"""
-    car_number = request.GET.get('car_number', '')
-    brands = CarBrand.objects.prefetch_related('models').all()
-    fuel_types = FuelType.objects.all()
-
-    # JSON 데이터 준비 (JavaScript에서 즉시 사용)
+def _build_brands_data(include_generations=True):
+    """브랜드/차종/세대 JSON 데이터 빌드"""
+    brands = CarBrand.objects.prefetch_related('models', 'models__generations').all()
     brands_data = []
     for brand in brands:
+        models_data = []
+        for m in brand.models.filter(parent=None):
+            model_info = {'id': m.id, 'name': m.name}
+            if include_generations:
+                gens = list(m.generations.all())
+                if gens:
+                    model_info['generations'] = [{'id': g.id, 'name': g.name} for g in gens]
+            models_data.append(model_info)
         brands_data.append({
             'id': brand.id,
             'name': brand.name,
-            'models': [{'id': m.id, 'name': m.name} for m in brand.models.all()]
+            'models': models_data,
         })
+    return brands, brands_data
+
+
+def select_car(request):
+    """차종 선택 페이지 (브랜드/차종/연료 한 페이지에서)"""
+    car_number = request.GET.get('car_number', '')
+    brands, brands_data = _build_brands_data()
+    fuel_types = FuelType.objects.all()
 
     fuels_data = [{'id': f.id, 'name': f.name} for f in fuel_types]
 
@@ -171,77 +186,54 @@ def select_oil(request):
     fuel_id = request.GET.get('fuel')
 
     brand = get_object_or_404(CarBrand, id=brand_id) if brand_id else None
-    car_model = get_object_or_404(CarModel, id=model_id) if model_id else None
+    car_model = get_object_or_404(CarModel.objects.select_related('parent'), id=model_id) if model_id else None
     fuel_type = get_object_or_404(FuelType, id=fuel_id) if fuel_id else None
 
-    # 국산 브랜드 목록
-    domestic_brands = ['현대', '기아', '제네시스', 'KG모빌리티', '르노코리아']
-    is_domestic = brand.name in domestic_brands if brand else True
+    # DB에서 차종×연료 조합의 가격 조회
+    prices = OilPrice.objects.filter(
+        car_model=car_model, fuel_type=fuel_type
+    ).select_related('oil_product')
+    price_map = {p.oil_product.tier: p.price for p in prices}
 
-    # 오일 티어 데이터 (가이드라인 기반)
-    all_oil_tiers = [
-        {
-            'id': 'economy',
-            'name': '이코노미',
-            'price': 50000,
-            'oil_type': '합성유',
-            'tagline': '경제적인 선택, 일반 주행에 적합',
-            'product_name': 'Kixx DX5',
-            'badge': None,
-            'badge_type': None,
-            'free_services': ['타이어 공기압 체크'],
-        },
-        {
-            'id': 'standard',
-            'name': '스탠다드',
-            'price': 70000,
-            'oil_type': '고급 합성유',
-            'tagline': '균형 잡힌 성능과 보호',
-            'product_name': 'Kixx GX7',
-            'badge': None,
-            'badge_type': None,
-            'free_services': ['타이어 공기압 체크', '워셔액 보충'],
-        },
-        {
-            'id': 'premium',
-            'name': '프리미엄',
-            'price': 90000,
-            'oil_type': 'PAO 합성유',
-            'tagline': '고급 합성유, 향상된 엔진 보호와 연비',
-            'product_name': 'Kixx PAO',
-            'badge': '추천',
-            'badge_type': 'recommended',
-            'free_services': ['타이어 공기압 체크', '워셔액 보충', '에어컨 필터 점검'],
-        },
-        {
-            'id': 'hyperformance',
-            'name': '하이퍼포먼스',
-            'price': 120000,
-            'oil_type': '에스터 합성유',
-            'tagline': '최고급 전합성유, 고출력 엔진에 최적화',
-            'product_name': '리스타 슈퍼노멀',
-            'badge': '🔥 인기',
-            'badge_type': 'popular',
-            'free_services': ['타이어 공기압 체크', '워셔액 보충', '에어컨 필터 점검', '실내 간단 청소'],
-        },
-        {
-            'id': 'racing',
-            'name': '레이싱',
-            'price': 150000,
-            'oil_type': '최고급 에스터',
-            'tagline': '극한 성능, 스포츠카 및 튜닝카 전용',
-            'product_name': '리스타 메탈로센',
-            'badge': '💎 최고급',
-            'badge_type': 'premium',
-            'free_services': ['타이어 공기압 체크', '워셔액 보충', '에어컨 필터 점검', '실내 간단 청소', '엔진룸 클리닝'],
-        },
-    ]
+    # 하이브리드면 premium 가격을 벤졸(premium_hybrid) 가격으로 교체
+    if fuel_type and fuel_type.name == '하이브리드' and 'premium_hybrid' in price_map:
+        price_map['premium'] = price_map['premium_hybrid']
 
-    # 수입차는 프리미엄부터만 표시
-    if is_domestic:
-        oil_tiers = all_oil_tiers
-    else:
-        oil_tiers = [t for t in all_oil_tiers if t['id'] in ['premium', 'hyperformance', 'racing']]
+    # 가시적인 오일 제품 목록 생성
+    oil_products = OilProduct.objects.filter(is_active=True, is_visible=True).order_by('order')
+    has_db_prices = bool(price_map)
+
+    # 폴백 가격 (DB에 가격 데이터가 없는 수입차 등)
+    FALLBACK_PRICES = {
+        'economy': 50000,
+        'standard': 70000,
+        'premium': 90000,
+        'hyperformance': 120000,
+        'racing': 150000,
+    }
+
+    oil_tiers = []
+    for op in oil_products:
+        if has_db_prices:
+            price = price_map.get(op.tier)
+            if price is None:
+                continue  # 이 티어는 해당 차종에 미제공
+        else:
+            price = FALLBACK_PRICES.get(op.tier, 0)
+
+        oil_tiers.append({
+            'id': op.tier,
+            'product_id': op.id,
+            'name': op.get_tier_display(),
+            'price': price,
+            'oil_type': op.oil_type,
+            'tagline': op.tagline,
+            'product_name': op.name,
+            'badge': op.badge or None,
+            'badge_type': op.badge_type or None,
+        })
+
+    is_domestic = has_db_prices  # DB에 가격이 있으면 국산
 
     context = {
         'car_number': car_number,
@@ -264,25 +256,20 @@ def select_service(request):
     model_id = request.GET.get('model')
     fuel_id = request.GET.get('fuel')
     oil_tier_id = request.GET.get('oil')
+    oil_price_param = request.GET.get('oil_price', '0')
 
     brand = get_object_or_404(CarBrand, id=brand_id) if brand_id else None
-    car_model = get_object_or_404(CarModel, id=model_id) if model_id else None
+    car_model = get_object_or_404(CarModel.objects.select_related('parent'), id=model_id) if model_id else None
     fuel_type = get_object_or_404(FuelType, id=fuel_id) if fuel_id else None
 
-    # 오일 티어 데이터
-    oil_tiers_map = {
-        'economy': {'name': '이코노미', 'price': 50000, 'product_name': 'Kixx DX5'},
-        'standard': {'name': '스탠다드', 'price': 70000, 'product_name': 'Kixx GX7'},
-        'premium': {'name': '프리미엄', 'price': 90000, 'product_name': 'Kixx PAO'},
-        'hyperformance': {'name': '하이퍼포먼스', 'price': 120000, 'product_name': '리스타 슈퍼노멀'},
-        'racing': {'name': '레이싱', 'price': 150000, 'product_name': '리스타 메탈로센'},
-    }
+    # OilProduct DB에서 조회
+    oil_product = OilProduct.objects.filter(tier=oil_tier_id).first()
+    oil_price = int(oil_price_param) if oil_price_param.isdigit() else 0
 
-    oil_tier = oil_tiers_map.get(oil_tier_id, {})
     oil = type('Oil', (), {
-        'name': oil_tier.get('name', ''),
-        'price': oil_tier.get('price', 0),
-        'product_name': oil_tier.get('product_name', ''),
+        'name': oil_product.get_tier_display() if oil_product else '',
+        'price': oil_price,
+        'product_name': oil_product.name if oil_product else '',
     })()
 
     services = AdditionalService.objects.filter(is_active=True)
@@ -302,6 +289,7 @@ def select_service(request):
         'model_id': model_id,
         'fuel_id': fuel_id,
         'oil_id': oil_tier_id,
+        'oil_price': oil_price,
     }
     return render(request, 'select_service.html', context)
 
@@ -313,26 +301,21 @@ def estimate(request):
     model_id = request.GET.get('model')
     fuel_id = request.GET.get('fuel')
     oil_tier_id = request.GET.get('oil')
+    oil_price_param = request.GET.get('oil_price', '0')
     service_ids = request.GET.get('services', '')
 
     brand = get_object_or_404(CarBrand, id=brand_id) if brand_id else None
-    car_model = get_object_or_404(CarModel, id=model_id) if model_id else None
+    car_model = get_object_or_404(CarModel.objects.select_related('parent'), id=model_id) if model_id else None
     fuel_type = get_object_or_404(FuelType, id=fuel_id) if fuel_id else None
 
-    # 오일 티어 데이터 (select_oil과 동일)
-    oil_tiers_map = {
-        'economy': {'name': '이코노미', 'price': 50000, 'product_name': 'Kixx DX5'},
-        'standard': {'name': '스탠다드', 'price': 70000, 'product_name': 'Kixx GX7'},
-        'premium': {'name': '프리미엄', 'price': 90000, 'product_name': 'Kixx PAO'},
-        'hyperformance': {'name': '하이퍼포먼스', 'price': 120000, 'product_name': '리스타 슈퍼노멀'},
-        'racing': {'name': '레이싱', 'price': 150000, 'product_name': '리스타 메탈로센'},
-    }
+    # OilProduct DB에서 조회
+    oil_product = OilProduct.objects.filter(tier=oil_tier_id).first()
+    oil_price = int(oil_price_param) if oil_price_param.isdigit() else 0
 
-    oil_tier = oil_tiers_map.get(oil_tier_id, {})
     oil = type('Oil', (), {
-        'name': oil_tier.get('name', ''),
-        'price': oil_tier.get('price', 0),
-        'product_name': oil_tier.get('product_name', ''),
+        'name': oil_product.get_tier_display() if oil_product else '',
+        'price': oil_price,
+        'product_name': oil_product.name if oil_product else '',
     })()
 
     # 선택된 추가 서비스들
@@ -358,6 +341,7 @@ def estimate(request):
         'model_id': model_id,
         'fuel_id': fuel_id,
         'oil_id': oil_tier_id,
+        'oil_price': oil_price,
         'service_ids': service_ids,
     }
     return render(request, 'estimate.html', context)
@@ -366,16 +350,6 @@ def estimate(request):
 # ============================================
 # 직원용 기능
 # ============================================
-
-# 오일 티어 데이터 (공통 사용)
-OIL_TIERS_MAP = {
-    'economy': {'name': '이코노미', 'price': 50000, 'product_name': 'Kixx DX5', 'mileage_interval': 6000},
-    'standard': {'name': '스탠다드', 'price': 70000, 'product_name': 'Kixx GX7', 'mileage_interval': 8000},
-    'premium': {'name': '프리미엄', 'price': 90000, 'product_name': 'Kixx PAO', 'mileage_interval': 10000},
-    'hyperformance': {'name': '하이퍼포먼스', 'price': 120000, 'product_name': '리스타 슈퍼노멀', 'mileage_interval': 12000},
-    'racing': {'name': '레이싱', 'price': 150000, 'product_name': '리스타 메탈로센', 'mileage_interval': 15000},
-}
-
 
 @require_POST
 def create_order(request):
@@ -387,7 +361,10 @@ def create_order(request):
     fuel_type = get_object_or_404(FuelType, id=data.get('fuel_id')) if data.get('fuel_id') else None
 
     oil_tier_id = data.get('oil_id', '')
-    oil_tier = OIL_TIERS_MAP.get(oil_tier_id, {})
+    oil_price = int(data.get('oil_price', 0))
+
+    # OilProduct에서 정보 조회
+    oil_product = OilProduct.objects.filter(tier=oil_tier_id).first()
 
     # 주문 생성
     order = ServiceOrder.objects.create(
@@ -397,9 +374,9 @@ def create_order(request):
         car_model=car_model,
         fuel_type=fuel_type,
         oil_tier=oil_tier_id,
-        oil_name=oil_tier.get('name', ''),
-        oil_product_name=oil_tier.get('product_name', ''),
-        oil_price=oil_tier.get('price', 0),
+        oil_name=oil_product.get_tier_display() if oil_product else '',
+        oil_product_name=oil_product.name if oil_product else '',
+        oil_price=oil_price,
         status='pending',
     )
 
@@ -444,8 +421,13 @@ def staff_dashboard(request):
         'completed': base_qs.filter(status='completed').count(),
     }
 
+    # 페이지네이션
+    paginator = Paginator(orders, 20)
+    page = request.GET.get('page', 1)
+    orders_page = paginator.get_page(page)
+
     context = {
-        'orders': orders[:100],
+        'orders': orders_page,
         'status_filter': status_filter,
         'time_filter': time_filter,
         'stats': stats,
@@ -458,14 +440,15 @@ def order_detail(request, order_id):
     """주문 상세 / 편집 페이지"""
     order = get_object_or_404(ServiceOrder, id=order_id)
 
-    # 오일별 교체 주기
-    oil_tier = OIL_TIERS_MAP.get(order.oil_tier, {})
-    mileage_interval = oil_tier.get('mileage_interval', 10000)
+    # 오일별 교체 주기 - OilProduct DB에서 조회
+    oil_product = OilProduct.objects.filter(tier=order.oil_tier).first()
+    mileage_interval = oil_product.mileage_interval if oil_product else 10000
 
     if request.method == 'POST':
         action = request.POST.get('action', '')
         order.mileage_current = request.POST.get('mileage_current') or None
         order.notes = request.POST.get('notes', '')
+        order.membership_discount = request.POST.get('membership_discount') == 'on'
 
         if order.mileage_current:
             order.mileage_current = int(order.mileage_current)
@@ -476,6 +459,33 @@ def order_detail(request, order_id):
             order.completed_at = timezone.now()
 
         order.save()
+
+        # 이카운트 ERP 연동
+        if settings.ECOUNT_API_KEY:
+            # 시공 완료 시 매출전표 생성
+            if action == 'complete':
+                ecount_result = create_sales_slip(order)
+                if ecount_result.get('success'):
+                    order.ecount_slip_no = ecount_result['slip_no']
+                    order.save(update_fields=['ecount_slip_no'])
+                else:
+                    messages.error(request, f'이카운트 매출전표 생성 실패: {ecount_result.get("error", "알 수 없는 오류")}')
+
+            # 멤버십 할인 ON + 아직 매입전표 없음 → 생성
+            if order.membership_discount and not order.ecount_purchase_slip_no:
+                purchase_result = create_purchase_slip(order)
+                if purchase_result.get('success'):
+                    order.ecount_purchase_slip_no = purchase_result['slip_no']
+                    order.save(update_fields=['ecount_purchase_slip_no'])
+                else:
+                    messages.error(request, f'이카운트 매입전표 생성 실패: {purchase_result.get("error", "알 수 없는 오류")}')
+
+        # 예약↔시공 상태 연동
+        if hasattr(order, 'reservation') and order.reservation:
+            res = order.reservation
+            if order.status == 'completed' and res.status != 'completed':
+                res.status = 'completed'
+                res.save(update_fields=['status'])
 
         # 완료된 주문은 상세페이지로, 미완료는 대시보드로
         if order.status == 'completed':
@@ -567,9 +577,6 @@ def send_alimtalk(request, order_id):
 @staff_required
 def reservation_list(request):
     """오늘 예약 + 시공 목록"""
-    import time
-    t_start = time.time()
-
     target_date = request.GET.get('date')
     if target_date:
         try:
@@ -579,14 +586,10 @@ def reservation_list(request):
     else:
         target_date = date.today()
 
-    t1 = time.time()
-
     # 쿼리 최적화: select_related로 JOIN
     reservations = list(Reservation.objects.filter(date=target_date)
         .select_related('brand', 'car_model')
         .order_by('time'))
-
-    t2 = time.time()
 
     # 시간대를 고려해서 해당 날짜의 주문 조회
     start_of_day = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
@@ -595,8 +598,6 @@ def reservation_list(request):
         created_at__gte=start_of_day,
         created_at__lt=end_of_day
     ).select_related('brand', 'car_model').order_by('created_at'))
-
-    t3 = time.time()
 
     # 주문별 로컬 시간 미리 계산
     for order in orders:
@@ -623,8 +624,6 @@ def reservation_list(request):
         'orders_pending': sum(1 for o in orders if o.status != 'completed'),
     }
 
-    t4 = time.time()
-
     context = {
         'target_date': target_date,
         'prev_date': target_date - timedelta(days=1),
@@ -635,12 +634,7 @@ def reservation_list(request):
         'stats': stats,
     }
 
-    response = render(request, 'staff/reservation_list.html', context)
-
-    t_end = time.time()
-    print(f"[TIMING] 파싱:{(t1-t_start)*1000:.0f}ms, 예약쿼리:{(t2-t1)*1000:.0f}ms, 주문쿼리:{(t3-t2)*1000:.0f}ms, 처리:{(t4-t3)*1000:.0f}ms, 렌더:{(t_end-t4)*1000:.0f}ms, 총:{(t_end-t_start)*1000:.0f}ms")
-
-    return response
+    return render(request, 'staff/reservation_list.html', context)
 
 
 @staff_required
@@ -709,14 +703,7 @@ def reservation_add(request):
         return redirect('reservation_list')
 
     # GET: 폼 표시
-    brands = CarBrand.objects.prefetch_related('models').all()
-    brands_data = []
-    for brand in brands:
-        brands_data.append({
-            'id': brand.id,
-            'name': brand.name,
-            'models': [{'id': m.id, 'name': m.name} for m in brand.models.all()]
-        })
+    brands, brands_data = _build_brands_data(include_generations=False)
 
     context = {
         'brands': brands,
@@ -749,6 +736,9 @@ def reservation_edit(request, reservation_id):
         if action == 'cancel':
             reservation.status = 'cancelled'
             reservation.save()
+            if reservation.order:
+                reservation.order.status = 'cancelled'
+                reservation.order.save(update_fields=['status'])
             return redirect('reservation_list')
 
         if action == 'no_show':
@@ -773,17 +763,25 @@ def reservation_edit(request, reservation_id):
         reservation.car_model = CarModel.objects.filter(id=model_id).first() if model_id else None
 
         reservation.save()
+
+        # 예약↔시공 상태 연동
+        if reservation.order:
+            STATUS_MAP = {
+                'completed': 'completed',
+                'cancelled': 'cancelled',
+                'in_progress': 'in_progress',
+            }
+            mapped = STATUS_MAP.get(reservation.status)
+            if mapped and reservation.order.status != mapped:
+                reservation.order.status = mapped
+                if mapped == 'completed':
+                    reservation.order.completed_at = timezone.now()
+                reservation.order.save(update_fields=['status'] + (['completed_at'] if mapped == 'completed' else []))
+
         return redirect('reservation_list')
 
     # GET
-    brands = CarBrand.objects.prefetch_related('models').all()
-    brands_data = []
-    for brand in brands:
-        brands_data.append({
-            'id': brand.id,
-            'name': brand.name,
-            'models': [{'id': m.id, 'name': m.name} for m in brand.models.all()]
-        })
+    brands, brands_data = _build_brands_data(include_generations=False)
 
     context = {
         'reservation': reservation,
@@ -845,3 +843,232 @@ def check_reservation(request):
         })
 
     return JsonResponse({'found': False})
+
+
+# ============================================
+# 오일 가격 관리
+# ============================================
+
+@staff_required
+def oil_price_management(request):
+    """오일 가격 관리 - 엑셀 스타일 스프레드시트"""
+    brands = CarBrand.objects.all()
+    fuel_types = FuelType.objects.all()
+
+    # 기본값: 첫 번째 브랜드, 첫 번째 연료
+    brand_id = request.GET.get('brand')
+    fuel_id = request.GET.get('fuel')
+
+    selected_brand = None
+    selected_fuel = None
+
+    if brand_id:
+        selected_brand = CarBrand.objects.filter(id=brand_id).first()
+    if not selected_brand:
+        selected_brand = brands.first()
+
+    if fuel_id:
+        selected_fuel = FuelType.objects.filter(id=fuel_id).first()
+    if not selected_fuel:
+        selected_fuel = fuel_types.first()
+
+    # 오일 제품 목록 (premium_hybrid 포함, 스태프용이라 is_visible 무시)
+    oil_products = list(OilProduct.objects.filter(is_active=True).order_by('order'))
+
+    # 해당 브랜드의 차종 (parent=None) + 세대(generations) prefetch
+    car_models = CarModel.objects.filter(
+        brand=selected_brand, parent=None
+    ).prefetch_related('generations').order_by('order', 'name')
+
+    # 세대 모델 ID 목록 수집
+    all_model_ids = []
+    for model in car_models:
+        gens = list(model.generations.all())
+        if gens:
+            all_model_ids.extend([g.id for g in gens])
+        else:
+            all_model_ids.append(model.id)
+
+    # OilPrice 벌크 쿼리
+    prices = OilPrice.objects.filter(
+        car_model_id__in=all_model_ids,
+        fuel_type=selected_fuel,
+    ).select_related('oil_product')
+
+    # price_map: {(model_id, product_id): price}
+    price_map = {}
+    for p in prices:
+        price_map[(p.car_model_id, p.oil_product_id)] = p.price
+
+    # 테이블 행 데이터 구성
+    rows = []
+    for model in car_models:
+        gens = list(model.generations.all())
+        if gens:
+            for gen in gens:
+                price_list = []
+                for op in oil_products:
+                    price_list.append({
+                        'product_id': op.id,
+                        'price': price_map.get((gen.id, op.id)),
+                    })
+                rows.append({
+                    'model_id': gen.id,
+                    'parent_id': model.id,
+                    'parent_name': model.name,
+                    'name': gen.name,
+                    'is_first_in_group': gen == gens[0],
+                    'group_size': len(gens),
+                    'prices': price_list,
+                })
+        else:
+            price_list = []
+            for op in oil_products:
+                price_list.append({
+                    'product_id': op.id,
+                    'price': price_map.get((model.id, op.id)),
+                })
+            rows.append({
+                'model_id': model.id,
+                'parent_id': None,
+                'parent_name': None,
+                'name': model.name,
+                'is_first_in_group': True,
+                'group_size': 1,
+                'prices': price_list,
+            })
+
+    context = {
+        'brands': brands,
+        'fuel_types': fuel_types,
+        'selected_brand': selected_brand,
+        'selected_fuel': selected_fuel,
+        'oil_products': oil_products,
+        'rows': rows,
+    }
+    return render(request, 'staff/oil_prices.html', context)
+
+
+@staff_required
+@require_POST
+def oil_price_save(request):
+    """오일 가격 일괄 저장 API"""
+    try:
+        data = json.loads(request.body)
+        changes = data.get('changes', [])
+
+        created = 0
+        updated = 0
+        deleted = 0
+
+        for item in changes:
+            model_id = item.get('model_id')
+            product_id = item.get('product_id')
+            fuel_id = item.get('fuel_id')
+            price = item.get('price')
+
+            if not all([model_id, product_id, fuel_id]):
+                continue
+
+            if price is None or price == '':
+                # 빈 값이면 삭제
+                count, _ = OilPrice.objects.filter(
+                    car_model_id=model_id,
+                    oil_product_id=product_id,
+                    fuel_type_id=fuel_id,
+                ).delete()
+                if count:
+                    deleted += count
+            else:
+                price = int(price)
+                obj, was_created = OilPrice.objects.update_or_create(
+                    car_model_id=model_id,
+                    oil_product_id=product_id,
+                    fuel_type_id=fuel_id,
+                    defaults={'price': price},
+                )
+                if was_created:
+                    created += 1
+                else:
+                    updated += 1
+
+        return JsonResponse({
+            'success': True,
+            'created': created,
+            'updated': updated,
+            'deleted': deleted,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def car_model_add(request):
+    """차종 추가 API"""
+    try:
+        data = json.loads(request.body)
+        brand_id = data.get('brand_id')
+        name = data.get('name', '').strip()
+        parent_id = data.get('parent_id')  # 세대 추가 시
+
+        if not brand_id or not name:
+            return JsonResponse({'success': False, 'error': '브랜드와 차종명을 입력하세요.'}, status=400)
+
+        brand = get_object_or_404(CarBrand, id=brand_id)
+        parent = CarModel.objects.filter(id=parent_id, brand=brand).first() if parent_id else None
+
+        model, created = CarModel.objects.get_or_create(
+            brand=brand,
+            name=name,
+            parent=parent,
+            defaults={'order': 0},
+        )
+
+        if not created:
+            return JsonResponse({'success': False, 'error': '이미 존재하는 차종입니다.'}, status=400)
+
+        return JsonResponse({
+            'success': True,
+            'model': {'id': model.id, 'name': model.name},
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def car_model_delete(request, model_id):
+    """차종 삭제 API (가격도 함께 삭제)"""
+    try:
+        model = get_object_or_404(CarModel, id=model_id)
+
+        # 시공 주문에서 참조 중인지 확인
+        order_count = ServiceOrder.objects.filter(car_model=model).count()
+        if order_count > 0:
+            return JsonResponse({
+                'success': False,
+                'error': f'시공 주문 {order_count}건에서 사용 중이라 삭제할 수 없습니다.',
+            }, status=400)
+
+        # 세대 모델이면 세대만 삭제, 부모 모델이면 세대까지 모두 삭제
+        if model.parent is None:
+            # 자식 세대들도 주문 참조 확인
+            children = model.generations.all()
+            child_order_count = ServiceOrder.objects.filter(car_model__in=children).count()
+            if child_order_count > 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'하위 세대가 시공 주문 {child_order_count}건에서 사용 중입니다.',
+                }, status=400)
+            # 자식 가격 + 자식 모델 삭제
+            OilPrice.objects.filter(car_model__in=children).delete()
+            children.delete()
+
+        # 본인 가격 + 모델 삭제
+        OilPrice.objects.filter(car_model=model).delete()
+        model.delete()
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

@@ -27,7 +27,7 @@
             <div class="px-6 py-5 border-b border-gray-200">
                 <div class="flex justify-between items-center">
                     <span class="text-gray-500">차량</span>
-                    <span class="font-semibold text-gray-900">{{ brand.name }} {{ car_model.name }}</span>
+                    <span class="font-semibold text-gray-900">{{ brand.name }} {% if car_model.parent %}{{ car_model.parent.name }} {{ car_model.name }}{% else %}{{ car_model.name }}{% endif %}</span>
                 </div>
                 {% if car_number %}
                 <div class="flex justify-between items-center mt-2">
@@ -139,6 +139,7 @@ document.getElementById('start-service-btn').addEventListener('click', function(
         model_id: '{{ model_id }}',
         fuel_id: '{{ fuel_id }}',
         oil_id: '{{ oil_id }}',
+        oil_price: {{ oil_price }},
         service_ids: '{{ service_ids }}',
     };
 

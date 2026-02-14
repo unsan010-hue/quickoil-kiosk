@@ -132,3 +132,20 @@ PPURIO_ACCOUNT = os.getenv('PPURIO_ACCOUNT', '')
 PPURIO_API_KEY = os.getenv('PPURIO_API_KEY', '')
 PPURIO_SENDER = os.getenv('PPURIO_SENDER', '')  # 발신번호
 PPURIO_TEMPLATE_CODE = os.getenv('PPURIO_TEMPLATE_CODE', '')  # 알림톡 템플릿 코드
+
+# 이카운트 ERP 연동
+ECOUNT_COM_CODE = os.getenv('ECOUNT_COM_CODE', '664058')
+ECOUNT_USER_ID = os.getenv('ECOUNT_USER_ID', 'Q51_KIOSK')
+ECOUNT_API_KEY = os.getenv('ECOUNT_API_KEY', '3f5e1f37ae87640ef9627b1364d51e0310')
+ECOUNT_ZONE = os.getenv('ECOUNT_ZONE', 'AC')
+ECOUNT_SITE_CD = os.getenv('ECOUNT_SITE_CD', '510')       # 부서코드 (퀵오일)
+ECOUNT_CUST = os.getenv('ECOUNT_CUST', '00013')            # 거래처코드 (토스페이먼츠)
+ECOUNT_CR_CODE = os.getenv('ECOUNT_CR_CODE', '4019')       # 매출계정 (상품매출)
+ECOUNT_ACCT_NO = os.getenv('ECOUNT_ACCT_NO', '1089')       # 입금계좌 (외상매출금)
+# 매입전표 (멤버십 할인)
+ECOUNT_PURCHASE_CUST = os.getenv('ECOUNT_PURCHASE_CUST', '00041')   # 거래처 (개인고객)
+ECOUNT_PURCHASE_DR_CODE = os.getenv('ECOUNT_PURCHASE_DR_CODE', '8349')  # 매입계정 (판매촉진비)
+ECOUNT_PURCHASE_ACCT_NO = os.getenv('ECOUNT_PURCHASE_ACCT_NO', '2519')  # 출금계좌 (외상매입금)
+# 멤버십 할인율/한도
+MEMBERSHIP_DISCOUNT_RATE = 0.2   # 20%
+MEMBERSHIP_DISCOUNT_MAX = 15000  # 최대 15,000원

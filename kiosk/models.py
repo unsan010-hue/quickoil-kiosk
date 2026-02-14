@@ -43,9 +43,10 @@ class CarBrand(models.Model):
 
 
 class CarModel(models.Model):
-    """차종 (쏘나타, K5 등)"""
+    """차종 (쏘나타, K5 등) - parent가 있으면 세대 (DN8, LF 등)"""
     brand = models.ForeignKey(CarBrand, on_delete=models.CASCADE, related_name='models', verbose_name='브랜드')
     name = models.CharField(max_length=100, verbose_name='차종명')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='generations', verbose_name='상위 차종')
     order = models.PositiveIntegerField(default=0, verbose_name='정렬순서')
 
     class Meta:
@@ -54,6 +55,8 @@ class CarModel(models.Model):
         ordering = ['order', 'name']
 
     def __str__(self):
+        if self.parent:
+            return f"{self.brand.name} {self.parent.name} {self.name}"
         return f"{self.brand.name} {self.name}"
 
 
@@ -87,6 +90,56 @@ class EngineOil(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.price:,}원)"
+
+
+class OilProduct(models.Model):
+    """오일 제품 (티어별)"""
+    TIER_CHOICES = [
+        ('economy', '이코노미'),
+        ('standard', '스탠다드'),
+        ('premium', '프리미엄'),
+        ('premium_hybrid', '프리미엄 하이브리드'),
+        ('hyperformance', '하이퍼포먼스'),
+        ('racing', '레이싱'),
+    ]
+
+    tier = models.CharField(max_length=20, unique=True, choices=TIER_CHOICES, verbose_name='티어')
+    name = models.CharField(max_length=100, verbose_name='제품명')
+    oil_type = models.CharField(max_length=50, verbose_name='오일 타입')
+    tagline = models.CharField(max_length=200, blank=True, verbose_name='설명')
+    mileage_interval = models.PositiveIntegerField(verbose_name='교환주기(km)')
+    badge = models.CharField(max_length=20, blank=True, verbose_name='뱃지')
+    badge_type = models.CharField(max_length=20, blank=True, verbose_name='뱃지 타입')
+    is_visible = models.BooleanField(default=True, verbose_name='고객 노출')
+    is_active = models.BooleanField(default=True, verbose_name='활성화')
+    order = models.PositiveIntegerField(default=0, verbose_name='정렬순서')
+
+    class Meta:
+        verbose_name = '오일 제품'
+        verbose_name_plural = '오일 제품'
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.get_tier_display()} - {self.name}"
+
+
+class OilPrice(models.Model):
+    """차종별 오일 가격"""
+    car_model = models.ForeignKey(CarModel, on_delete=models.CASCADE, related_name='oil_prices', verbose_name='차종')
+    oil_product = models.ForeignKey(OilProduct, on_delete=models.CASCADE, related_name='prices', verbose_name='오일 제품')
+    fuel_type = models.ForeignKey(FuelType, on_delete=models.CASCADE, related_name='oil_prices', verbose_name='연료타입')
+    price = models.PositiveIntegerField(verbose_name='가격')
+
+    class Meta:
+        verbose_name = '오일 가격'
+        verbose_name_plural = '오일 가격'
+        unique_together = [('car_model', 'oil_product', 'fuel_type')]
+        indexes = [
+            models.Index(fields=['car_model', 'fuel_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.car_model} / {self.oil_product.name} / {self.fuel_type.name} = {self.price:,}원"
 
 
 class AdditionalService(models.Model):
@@ -135,6 +188,13 @@ class ServiceOrder(models.Model):
     # 상태 및 메모
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='상태')
     notes = models.TextField(blank=True, verbose_name='메모')
+
+    # 멤버십 할인
+    membership_discount = models.BooleanField(default=False, verbose_name='운산 멤버십 할인')
+
+    # 이카운트 ERP 연동
+    ecount_slip_no = models.CharField(max_length=30, blank=True, default='', verbose_name='이카운트 매출전표번호')
+    ecount_purchase_slip_no = models.CharField(max_length=30, blank=True, default='', verbose_name='이카운트 매입전표번호')
 
     # 시간
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시', db_index=True)

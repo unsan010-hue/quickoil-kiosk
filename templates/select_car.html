@@ -61,6 +61,28 @@
             </div>
         </div>
 
+        <!-- 세대 섹션 (쏘나타 → DN8, LF 등) -->
+        <div id="generation-section" class="mb-4 hidden">
+            <div id="generation-collapsed" class="hidden border-b border-gray-200 py-4 mx-auto max-w-4xl">
+                <button type="button" class="flex w-full items-center justify-between text-left" onclick="expandGenerations()">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-500">세대</span>
+                        <span id="collapsed-generation-name" class="text-base font-semibold text-gray-900"></span>
+                    </div>
+                    <span class="flex h-7 items-center">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6 text-gray-500">
+                            <path d="M12 6v12m6-6H6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </button>
+            </div>
+            <div id="generation-expanded">
+                <h2 id="generation-title" class="text-center text-xl font-semibold text-gray-600 mb-6">세대 선택</h2>
+                <div id="generation-grid" class="mx-auto grid max-w-4xl grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                </div>
+            </div>
+        </div>
+
         <!-- 연료 섹션 -->
         <div id="fuel-section" class="mb-4 hidden mx-auto max-w-4xl">
             <h2 class="text-center text-xl font-semibold text-gray-600 mb-6">연료 선택</h2>
@@ -84,6 +106,7 @@ const carNumber = '{{ car_number|default:"" }}';
 
 let selectedBrand = null;
 let selectedModel = null;
+let selectedGeneration = null;
 let selectedFuel = null;
 
 const brandLogos = {
@@ -122,9 +145,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (brand) {
             selectBrand(brand.id, brand.name);
             if (preselectedModel) {
-                const model = brand.models.find(m => m.id == preselectedModel);
+                // 직접 모델에서 찾기
+                let model = brand.models.find(m => m.id == preselectedModel);
                 if (model) {
                     selectModel(model.id, model.name);
+                } else {
+                    // 세대에서 찾기
+                    for (const m of brand.models) {
+                        if (m.generations) {
+                            const gen = m.generations.find(g => g.id == preselectedModel);
+                            if (gen) {
+                                selectModel(m.id, m.name);
+                                selectGeneration(gen.id, gen.name);
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -153,6 +189,7 @@ function renderBrands() {
 function selectBrand(brandId, brandName) {
     selectedBrand = { id: brandId, name: brandName };
     selectedModel = null;
+    selectedGeneration = null;
     selectedFuel = null;
 
     // 브랜드 섹션 접기
@@ -164,10 +201,11 @@ function selectBrand(brandId, brandName) {
     const brand = brandsData.find(b => b.id === brandId);
     renderModels(brand.models);
 
-    // 차종 섹션 보이기, 연료/요약 숨기기
+    // 차종 섹션 보이기, 세대/연료/요약 숨기기
     document.getElementById('model-section').classList.remove('hidden');
     document.getElementById('model-expanded').classList.remove('hidden');
     document.getElementById('model-collapsed').classList.add('hidden');
+    document.getElementById('generation-section').classList.add('hidden');
     document.getElementById('fuel-section').classList.add('hidden');
     document.getElementById('summary-section').classList.add('hidden');
 }
@@ -195,12 +233,64 @@ function renderModels(models) {
 
 function selectModel(modelId, modelName) {
     selectedModel = { id: modelId, name: modelName };
+    selectedGeneration = null;
     selectedFuel = null;
+
+    // 세대가 있는지 확인
+    const brand = brandsData.find(b => b.id === selectedBrand.id);
+    const model = brand.models.find(m => m.id === modelId);
+    const hasGenerations = model && model.generations && model.generations.length > 0;
 
     // 차종 섹션 접기
     document.getElementById('model-expanded').classList.add('hidden');
     document.getElementById('model-collapsed').classList.remove('hidden');
     document.getElementById('collapsed-model-name').textContent = modelName;
+
+    if (hasGenerations) {
+        // 세대 선택 표시
+        renderGenerations(model.generations, modelName);
+        document.getElementById('generation-section').classList.remove('hidden');
+        document.getElementById('generation-expanded').classList.remove('hidden');
+        document.getElementById('generation-collapsed').classList.add('hidden');
+        document.getElementById('fuel-section').classList.add('hidden');
+    } else {
+        // 세대 없음 → 바로 연료 선택
+        document.getElementById('generation-section').classList.add('hidden');
+        renderFuels();
+        document.getElementById('fuel-section').classList.remove('hidden');
+    }
+    document.getElementById('summary-section').classList.add('hidden');
+}
+
+function expandModels() {
+    document.getElementById('model-expanded').classList.remove('hidden');
+    document.getElementById('model-collapsed').classList.add('hidden');
+    document.getElementById('generation-section').classList.add('hidden');
+    document.getElementById('fuel-section').classList.add('hidden');
+    document.getElementById('summary-section').classList.add('hidden');
+}
+
+function renderGenerations(generations, modelName) {
+    document.getElementById('generation-title').textContent = modelName + ' 세대 선택';
+    const grid = document.getElementById('generation-grid');
+    grid.innerHTML = generations.map(gen => `
+        <button type="button"
+            class="gen-btn py-4 px-4 text-center rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer min-h-[56px]"
+            data-gen-id="${gen.id}"
+            onclick="selectGeneration(${gen.id}, '${gen.name}')">
+            <span class="text-base font-medium text-gray-700">${gen.name}</span>
+        </button>
+    `).join('');
+}
+
+function selectGeneration(genId, genName) {
+    selectedGeneration = { id: genId, name: genName };
+    selectedFuel = null;
+
+    // 세대 섹션 접기
+    document.getElementById('generation-expanded').classList.add('hidden');
+    document.getElementById('generation-collapsed').classList.remove('hidden');
+    document.getElementById('collapsed-generation-name').textContent = genName;
 
     // 연료 렌더링 및 보이기
     renderFuels();
@@ -208,9 +298,11 @@ function selectModel(modelId, modelName) {
     document.getElementById('summary-section').classList.add('hidden');
 }
 
-function expandModels() {
-    document.getElementById('model-expanded').classList.remove('hidden');
-    document.getElementById('model-collapsed').classList.add('hidden');
+function expandGenerations() {
+    document.getElementById('generation-expanded').classList.remove('hidden');
+    document.getElementById('generation-collapsed').classList.add('hidden');
+    document.getElementById('fuel-section').classList.add('hidden');
+    document.getElementById('summary-section').classList.add('hidden');
 }
 
 function renderFuels() {
@@ -235,7 +327,9 @@ function selectFuel(fuelId, fuelName) {
 
     selectedFuel = { id: fuelId, name: fuelName };
 
-    let url = '/oil/?brand=' + selectedBrand.id + '&model=' + selectedModel.id + '&fuel=' + selectedFuel.id;
+    // 세대가 선택되었으면 세대 ID 사용, 아니면 모델 ID 사용
+    const finalModelId = selectedGeneration ? selectedGeneration.id : selectedModel.id;
+    let url = '/oil/?brand=' + selectedBrand.id + '&model=' + finalModelId + '&fuel=' + selectedFuel.id;
     if (carNumber) url += '&car_number=' + encodeURIComponent(carNumber);
     document.getElementById('next-btn').href = url;
     document.getElementById('summary-section').classList.remove('hidden');

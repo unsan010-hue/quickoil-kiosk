@@ -1,0 +1,382 @@
+{% extends 'staff/staff_base.html' %}
+{% load static %}
+
+{% block title %}QuickOil - 가격 관리{% endblock %}
+
+{% block staff_content %}
+<div class="bg-gray-100 min-h-screen pb-24">
+    <!-- 필터 바: 브랜드 탭 + 연료 토글 -->
+    <div class="bg-white border-b border-gray-200 sticky top-14 z-40">
+        <div class="mx-auto max-w-7xl px-6 py-3">
+            <!-- 브랜드 탭 -->
+            <div class="flex items-center gap-2 mb-3 flex-wrap">
+                <span class="text-sm font-medium text-gray-500 mr-1">브랜드</span>
+                {% for brand in brands %}
+                <a href="?brand={{ brand.id }}&fuel={{ selected_fuel.id }}"
+                   class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
+                   {% if brand.id == selected_brand.id %}bg-orange-500 text-white shadow-sm{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}"
+                   data-brand-link>
+                    {{ brand.name }}
+                </a>
+                {% endfor %}
+            </div>
+            <!-- 연료 토글 -->
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-500 mr-1">연료</span>
+                <div class="flex bg-gray-100 rounded-lg p-1">
+                    {% for fuel in fuel_types %}
+                    <a href="?brand={{ selected_brand.id }}&fuel={{ fuel.id }}"
+                       class="px-4 py-1.5 text-sm font-medium rounded-md transition-colors
+                       {% if fuel.id == selected_fuel.id %}bg-white text-gray-900 shadow-sm{% else %}text-gray-500 hover:text-gray-700{% endif %}"
+                       data-fuel-link>
+                        {{ fuel.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 테이블 -->
+    <div class="mx-auto max-w-7xl px-6 pt-4">
+        {% if rows %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+            <table class="w-full text-sm" id="priceTable">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="text-left px-4 py-3 font-semibold text-gray-700 sticky left-0 bg-gray-50 z-10 min-w-[160px]">차종</th>
+                        <th class="w-8 bg-gray-50"></th>
+                        {% for op in oil_products %}
+                        <th class="text-center px-3 py-3 min-w-[100px]">
+                            <div class="font-semibold text-gray-700">{{ op.get_tier_display }}</div>
+                            <div class="text-xs font-normal text-gray-400 mt-0.5">{{ op.name }}</div>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    {% if row.is_first_in_group and row.parent_name %}
+                    <tr class="bg-gray-50 border-t border-gray-200">
+                        <td colspan="{{ oil_products|length|add:2 }}" class="px-4 py-2 font-semibold text-gray-800 sticky left-0 bg-gray-50">
+                            {{ row.parent_name }}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr class="border-t border-gray-100 hover:bg-blue-50/30 group" data-model-id="{{ row.model_id }}">
+                        <td class="px-4 py-1.5 text-gray-700 sticky left-0 bg-white z-10">
+                            {% if row.parent_name %}
+                            <span class="pl-3 text-gray-600">{{ row.name }}</span>
+                            {% else %}
+                            <span class="font-medium">{{ row.name }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-0 py-1">
+                            <button onclick="deleteModel({{ row.model_id }}, '{{ row.name }}')"
+                                    class="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-500 transition-all"
+                                    title="삭제">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </td>
+                        {% for p in row.prices %}
+                        <td class="px-1 py-1">
+                            <input type="text" inputmode="numeric"
+                                   class="price-cell w-full text-center px-2 py-1.5 rounded border border-transparent hover:border-gray-300 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none transition-colors text-sm tabular-nums"
+                                   value="{% if p.price is not None %}{{ p.price }}{% endif %}"
+                                   data-model-id="{{ row.model_id }}"
+                                   data-product-id="{{ p.product_id }}"
+                                   data-original="{% if p.price is not None %}{{ p.price }}{% endif %}"
+                                   placeholder="-">
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-20 text-gray-400">
+            해당 조건의 차종이 없습니다.
+        </div>
+        {% endif %}
+
+        <!-- 차종 추가 -->
+        <div class="mt-3 flex items-center gap-2">
+            <input type="text" id="newModelName" placeholder="새 차종명 입력"
+                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none w-48">
+            <select id="newModelParent" class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 focus:border-orange-400 focus:outline-none">
+                <option value="">독립 차종</option>
+                {% for row in rows %}
+                {% if row.is_first_in_group and row.parent_name %}
+                <option value="{{ row.parent_id }}">{{ row.parent_name }}의 세대</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <button onclick="addModel()" class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                + 차종 추가
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 저장 바 -->
+<div id="saveBar" class="fixed bottom-0 left-0 right-0 z-50 translate-y-full transition-transform duration-300">
+    <div class="bg-white border-t border-gray-200 shadow-lg">
+        <div class="mx-auto max-w-7xl px-6 py-3 flex items-center justify-between">
+            <span class="text-sm text-gray-600">
+                <span id="changeCount" class="font-bold text-orange-600">0</span>건 수정됨
+            </span>
+            <div class="flex items-center gap-3">
+                <button onclick="discardChanges()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+                    취소
+                </button>
+                <button onclick="saveChanges()" id="saveBtn"
+                        class="px-6 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    저장
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const FUEL_ID = {{ selected_fuel.id }};
+const changes = {};  // key: "modelId_productId", value: {model_id, product_id, fuel_id, price}
+
+function getCellKey(modelId, productId) {
+    return modelId + '_' + productId;
+}
+
+// 숫자 → 콤마 포맷
+function formatNumber(val) {
+    if (val === '' || val === null || val === undefined) return '';
+    const num = parseInt(String(val).replace(/,/g, ''));
+    if (isNaN(num)) return '';
+    return num.toLocaleString();
+}
+
+// 콤마 제거 → 순수 숫자 문자열
+function parseRaw(val) {
+    return String(val).replace(/,/g, '').trim();
+}
+
+// 초기 로드 시 콤마 포맷 적용
+document.querySelectorAll('.price-cell').forEach(input => {
+    input.value = formatNumber(input.value);
+});
+
+// 변경 감지
+document.querySelectorAll('.price-cell').forEach(input => {
+    input.addEventListener('input', function() {
+        // 숫자와 콤마만 허용
+        const raw = this.value.replace(/[^0-9]/g, '');
+        const modelId = this.dataset.modelId;
+        const productId = this.dataset.productId;
+        const original = this.dataset.original;
+        const key = getCellKey(modelId, productId);
+
+        if (raw !== original) {
+            changes[key] = {
+                model_id: parseInt(modelId),
+                product_id: parseInt(productId),
+                fuel_id: FUEL_ID,
+                price: raw === '' ? null : parseInt(raw),
+            };
+            this.classList.add('bg-yellow-50', 'border-yellow-300');
+            this.classList.remove('border-transparent');
+        } else {
+            delete changes[key];
+            this.classList.remove('bg-yellow-50', 'border-yellow-300');
+            this.classList.add('border-transparent');
+        }
+        updateSaveBar();
+    });
+
+    // blur 시 콤마 포맷 적용
+    input.addEventListener('blur', function() {
+        this.value = formatNumber(this.value);
+    });
+
+    // focus 시 콤마 제거 (순수 숫자로 편집)
+    input.addEventListener('focus', function() {
+        this.value = parseRaw(this.value);
+        this.select();
+    });
+
+    // 키보드 네비게이션
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const allCells = [...document.querySelectorAll('.price-cell')];
+            const idx = allCells.indexOf(this);
+            const colCount = {{ oil_products|length }};
+            // Enter = 아래로 이동 (같은 열)
+            const nextIdx = idx + colCount;
+            if (nextIdx < allCells.length) {
+                allCells[nextIdx].focus();
+            }
+        } else if (e.key === 'Escape') {
+            // Esc = 원래 값 복원
+            this.value = this.dataset.original;
+            this.dispatchEvent(new Event('input'));
+            this.value = formatNumber(this.value);
+            this.blur();
+        }
+    });
+});
+
+function updateSaveBar() {
+    const count = Object.keys(changes).length;
+    document.getElementById('changeCount').textContent = count;
+    const bar = document.getElementById('saveBar');
+    if (count > 0) {
+        bar.classList.remove('translate-y-full');
+    } else {
+        bar.classList.add('translate-y-full');
+    }
+}
+
+function discardChanges() {
+    document.querySelectorAll('.price-cell').forEach(input => {
+        input.value = formatNumber(input.dataset.original);
+        input.classList.remove('bg-yellow-50', 'border-yellow-300');
+        input.classList.add('border-transparent');
+    });
+    for (const key in changes) delete changes[key];
+    updateSaveBar();
+}
+
+async function saveChanges() {
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+
+    const changeList = Object.values(changes);
+
+    try {
+        const resp = await fetch('{% url "oil_price_save" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ changes: changeList }),
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            // 성공: 초록 플래시
+            document.querySelectorAll('.price-cell').forEach(input => {
+                const key = getCellKey(input.dataset.modelId, input.dataset.productId);
+                if (changes[key]) {
+                    const raw = parseRaw(input.value);
+                    input.dataset.original = raw;
+                    input.value = formatNumber(raw);
+                    input.classList.remove('bg-yellow-50', 'border-yellow-300');
+                    input.classList.add('bg-green-50', 'border-green-300');
+                    setTimeout(() => {
+                        input.classList.remove('bg-green-50', 'border-green-300');
+                        input.classList.add('border-transparent');
+                    }, 1500);
+                }
+            });
+            for (const key in changes) delete changes[key];
+            updateSaveBar();
+        } else {
+            alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
+        }
+    } catch (err) {
+        alert('저장 중 오류: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '저장';
+    }
+}
+
+function getCookie(name) {
+    let val = null;
+    document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
+    });
+    return val;
+}
+
+// 미저장 경고
+window.addEventListener('beforeunload', function(e) {
+    if (Object.keys(changes).length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// 차종 추가
+async function addModel() {
+    const name = document.getElementById('newModelName').value.trim();
+    const parentId = document.getElementById('newModelParent').value || null;
+    if (!name) {
+        alert('차종명을 입력하세요.');
+        return;
+    }
+    try {
+        const resp = await fetch('{% url "car_model_add" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                brand_id: {{ selected_brand.id }},
+                name: name,
+                parent_id: parentId ? parseInt(parentId) : null,
+            }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || '추가 실패');
+        }
+    } catch (err) {
+        alert('오류: ' + err.message);
+    }
+}
+
+// 차종 삭제
+async function deleteModel(modelId, modelName) {
+    if (!confirm(modelName + ' 차종을 삭제하시겠습니까?\n해당 차종의 모든 가격 데이터도 삭제됩니다.')) {
+        return;
+    }
+    try {
+        const resp = await fetch('/api/car-models/' + modelId + '/delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+        });
+        const data = await resp.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || '삭제 실패');
+        }
+    } catch (err) {
+        alert('오류: ' + err.message);
+    }
+}
+
+// 탭 전환 시 미저장 경고
+document.querySelectorAll('[data-brand-link], [data-fuel-link]').forEach(link => {
+    link.addEventListener('click', function(e) {
+        if (Object.keys(changes).length > 0) {
+            if (!confirm('수정 내용이 저장되지 않았습니다. 이동하시겠습니까?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

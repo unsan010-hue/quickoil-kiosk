@@ -148,6 +148,21 @@
                     <textarea name="notes" rows="3"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">{{ order.notes }}</textarea>
                 </div>
+                <!-- 멤버십 할인 토글 -->
+                <div class="flex items-center justify-between py-3 px-4 bg-blue-50 rounded-lg">
+                    <div>
+                        <span class="font-medium text-gray-900">운산 멤버십 할인</span>
+                        <span class="text-sm text-gray-500 ml-2">20% (최대 15,000원)</span>
+                        {% if order.ecount_purchase_slip_no %}
+                        <span class="text-xs text-green-600 ml-1">전표: {{ order.ecount_purchase_slip_no }}</span>
+                        {% endif %}
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="membership_discount" class="sr-only peer"
+                               {% if order.membership_discount %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-300 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                    </label>
+                </div>
             </div>
             <div class="px-6 py-4 bg-gray-50 flex gap-3">
                 <button type="button" id="cancel-edit-btn" class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300">
@@ -215,6 +230,18 @@
                     <textarea name="notes" rows="3"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         placeholder="특이사항이 있으면 입력해주세요">{{ order.notes }}</textarea>
+                </div>
+                <!-- 멤버십 할인 토글 -->
+                <div class="flex items-center justify-between py-3 px-4 bg-blue-50 rounded-lg">
+                    <div>
+                        <span class="font-medium text-gray-900">운산 멤버십 할인</span>
+                        <span class="text-sm text-gray-500 ml-2">20% (최대 15,000원)</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="membership_discount" class="sr-only peer"
+                               {% if order.membership_discount %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-300 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                    </label>
                 </div>
             </div>
             <div class="px-6 py-4 bg-gray-50 flex gap-3">

@@ -25,7 +25,7 @@
                 <span class="text-gray-300">|</span>
                 <div class="flex items-center gap-2">
                     <span class="text-gray-500">차종</span>
-                    <span class="font-semibold text-gray-800">{{ car_model.name }}</span>
+                    <span class="font-semibold text-gray-800">{% if car_model.parent %}{{ car_model.parent.name }} {{ car_model.name }}{% else %}{{ car_model.name }}{% endif %}</span>
                 </div>
                 <span class="text-gray-300">|</span>
                 <div class="flex items-center gap-2">
@@ -66,6 +66,7 @@
                     data-tier-name="{{ tier.name }}"
                     data-tier-price="{{ tier.price }}"
                     data-product-name="{{ tier.product_name }}"
+                    data-product-id="{{ tier.product_id }}"
                     onclick="selectOil('{{ tier.id }}')">
 
                     <!-- 등급명 -->
@@ -158,8 +159,8 @@ function selectOil(tierId) {
     document.getElementById('selected-price').textContent = tierPrice.toLocaleString() + '원';
     document.getElementById('bottom-bar').classList.remove('hidden');
 
-    // URL 설정
-    let url = '/service/?brand=' + brandId + '&model=' + modelId + '&fuel=' + fuelId + '&oil=' + tierId;
+    // URL 설정 (oil_price 포함)
+    let url = '/service/?brand=' + brandId + '&model=' + modelId + '&fuel=' + fuelId + '&oil=' + tierId + '&oil_price=' + tierPrice;
     if (carNumber) url += '&car_number=' + encodeURIComponent(carNumber);
     document.getElementById('next-btn').href = url;
 }
