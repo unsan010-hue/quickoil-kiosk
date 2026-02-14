@@ -1147,3 +1147,17 @@ def service_delete(request, service_id):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@staff_required
+@require_POST
+def service_reorder(request):
+    """추가 서비스 순서 저장 API"""
+    try:
+        data = json.loads(request.body)
+        order_list = data.get('order', [])  # [{id, order}, ...]
+        for item in order_list:
+            AdditionalService.objects.filter(id=item['id']).update(order=item['order'])
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

@@ -38,4 +38,5 @@ urlpatterns = [
     path('api/services/save/', views.service_save, name='service_save'),
     path('api/services/add/', views.service_add, name='service_add'),
     path('api/services/<int:service_id>/delete/', views.service_delete, name='service_delete'),
+    path('api/services/reorder/', views.service_reorder, name='service_reorder'),
 ]

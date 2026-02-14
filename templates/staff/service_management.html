@@ -12,6 +12,7 @@
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-200">
+                        <th class="text-center px-2 py-3 font-semibold text-gray-700 w-16">순서</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-700 w-48">서비스명</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-700">설명</th>
                         <th class="text-center px-4 py-3 font-semibold text-gray-700 w-32">가격</th>
@@ -22,6 +23,16 @@
                 <tbody>
                     {% for svc in services %}
                     <tr class="border-t border-gray-100 hover:bg-blue-50/30 group" data-svc-id="{{ svc.id }}">
+                        <td class="text-center px-1 py-1">
+                            <div class="flex flex-col items-center gap-0.5">
+                                <button onclick="moveRow(this, -1)" class="p-0.5 text-gray-300 hover:text-gray-600 transition-colors" title="위로">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <button onclick="moveRow(this, 1)" class="p-0.5 text-gray-300 hover:text-gray-600 transition-colors" title="아래로">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                            </div>
+                        </td>
                         <td class="px-4 py-1.5">
                             <input type="text" class="svc-field w-full px-2 py-1.5 rounded border border-transparent hover:border-gray-300 focus:border-orange-400 focus:ring-1 focus:ring-orange-400 focus:outline-none text-sm"
                                    value="{{ svc.name }}" data-field="name" data-original="{{ svc.name }}">
@@ -50,7 +61,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-10 text-gray-400">등록된 서비스가 없습니다.</td>
+                        <td colspan="6" class="text-center py-10 text-gray-400">등록된 서비스가 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -255,6 +266,45 @@ async function deleteService(svcId, svcName) {
         if (data.success) { location.reload(); }
         else { alert(data.error || '삭제 실패'); }
     } catch (err) { alert('오류: ' + err.message); }
+}
+
+// 순서 변경
+async function moveRow(btn, direction) {
+    const row = btn.closest('tr');
+    const tbody = row.parentElement;
+    const rows = [...tbody.querySelectorAll('tr[data-svc-id]')];
+    const idx = rows.indexOf(row);
+    const targetIdx = idx + direction;
+
+    if (targetIdx < 0 || targetIdx >= rows.length) return;
+
+    const targetRow = rows[targetIdx];
+
+    // DOM 이동
+    if (direction === -1) {
+        tbody.insertBefore(row, targetRow);
+    } else {
+        tbody.insertBefore(targetRow, row);
+    }
+
+    // 새 순서 수집 → 즉시 저장
+    const newRows = [...tbody.querySelectorAll('tr[data-svc-id]')];
+    const orderList = newRows.map((r, i) => ({ id: parseInt(r.dataset.svcId), order: i }));
+
+    // 이동 애니메이션
+    row.classList.add('bg-orange-50');
+    setTimeout(() => row.classList.remove('bg-orange-50'), 400);
+
+    try {
+        await fetch('{% url "service_reorder" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ order: orderList }),
+        });
+    } catch (err) {
+        // 실패 시 되돌리기
+        location.reload();
+    }
 }
 
 // 미저장 경고
